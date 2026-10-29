@@ -7,7 +7,15 @@ using YamlDotNet.RepresentationModel;
 namespace QuizBank.Yaml;
 
 /// <summary>1-based line and column in a source file.</summary>
-public readonly record struct SourcePosition(int Line, int Column);
+public readonly record struct SourcePosition(int Line, int Column)
+{
+    /// <summary>The position of the character at <paramref name="offset"/> in <paramref name="text"/>.</summary>
+    public static SourcePosition FromOffset(string text, int offset)
+    {
+        var lineStart = offset == 0 ? 0 : text.LastIndexOf('\n', offset - 1) + 1;
+        return new SourcePosition(1 + text.AsSpan(0, offset).Count('\n'), offset - lineStart + 1);
+    }
+}
 
 /// <summary>A YAML file that could not be read as a single JSON-compatible document.</summary>
 public sealed class YamlLoadException(string message, SourcePosition position) : Exception(message)

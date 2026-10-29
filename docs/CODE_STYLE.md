@@ -22,11 +22,12 @@ The tools are one .NET 10 console app. Each tool is a command (`quizbank validat
 
 **Commands**
 
-- `Cli.Run(args, stdout, stderr)` parses arguments and returns the exit code. It takes writers instead of using `Console`, so tests call it directly.
-- Exit codes: `0` passed, `1` found errors, `2` bad usage or environment (unknown command, no repo root, Docker not running).
+- `Cli.RunAsync(args, stdout, stderr)` parses arguments and returns the exit code. It takes writers instead of using `Console`, so tests call it directly.
+- Exit codes: `0` passed, `1` found errors, `2` bad usage or environment (unknown command, no repo root, Docker not running), `130` cancelled with Ctrl+C. Environment problems are thrown as `EnvironmentException` and turned into exit code 2 by `Cli`. Ctrl+C and SIGTERM cancel the command's token instead of ending the process, so cleanup such as removing run-checks' container still runs.
 - Errors go to stdout, one per line, as `file:line:column: message` with the file relative to the repo root and forward slashes (`Diagnostic`). A summary line comes last, like `validate: OK, 1 roadmap (41 nodes), 11 concepts, 1 question`.
 - The tool's own messages are full sentences that end with a period and quote values in single quotes, and say how to fix the problem when it isn't obvious: `Concept 'x' does not list node 'linq'; add it to the concept in concepts/sample.yaml.` Schema errors pass through from JsonSchema.Net as they are, prefixed with the JSON pointer: `/targets/dotnet: Value is "integer" but should be "string"`.
-- Output is deterministic: same input, same lines in the same order.
+- Output is deterministic: same input, same lines in the same order, in any culture. Format numbers with the invariant culture. run-checks prints results in question id order even though checks run in parallel.
+- run-checks prints each passing check's `PASS` line. A failing SQL check's diagnostic is followed by the check's full output, indented four spaces, so the expected block can be updated from it.
 
 **Code**
 
@@ -45,19 +46,42 @@ A check proves a question's marked answer by running the question's own code on 
 
 - A file-based app with top-level statements and no project file. Directives come first: `#:sdk Microsoft.NET.Sdk.Web` when ASP.NET Core is needed, `#:package Name@1.2.3` with an exact version.
 - The header comment names the question and the marked answer, and says how the check decides: `// Check for csharp-001 (marked answer: b).`
-- Copy the question's code unchanged between markers. Statements go between `// --- snippet statements ---` and `// --- end snippet statements ---`; types go after `// --- snippet types ---` at the end of the file. Harness code stays outside the markers.
+- Copy the question's code unchanged between markers. Statements go between `// --- snippet statements ---` and `// --- end snippet statements ---`; types go after `// --- snippet types ---` at the end of the file. Harness code stays outside the markers. `tools/validate` compares the snippet with the question's code, ignoring trailing spaces and blank lines at either end.
 - Assert the exact claim: printed output, exception type, HTTP status, or the SQL sent (`ToQueryString()` or EF logging). For "what does this print" questions, capture the output and check that exactly one option matches it and that it is the marked one.
 - On success, print `PASS <id>: <what was observed>` to stdout and return 0. On failure, print `FAIL <id>: <what was observed>; <what was expected>` to stderr and return 1.
 - Deterministic: no wall-clock time, random values, network calls, or results that depend on thread scheduling, unless the question is about that and the check controls it.
-- Database checks read the connection string from `QUIZTIME_PG` and work in their own schema or database, which they drop at the end, so checks can run in parallel.
+- Database checks read the connection string from `QUIZTIME_PG`. run-checks creates an empty database for each check (`check_<id>`), passes its connection string in `QUIZTIME_PG`, and drops it afterwards, so checks can run in parallel. A check that reads `QUIZTIME_PG` is treated as a database check. Use only that database; never create or drop others.
 - Compiler warnings are allowed. A snippet may warn on purpose: CS0252 on `object == string` is often the point of the question.
 - Question code follows the same C# layout, so a copy passes `tools/verify`.
 
 ## SQL checks (`checks/<id>/check.sql`)
 
-- PostgreSQL 16. Uppercase keywords, snake_case identifiers.
-- Self-contained: create what the check needs in its own schema and drop it at the end.
-- The expected-result format is defined in milestone 2 together with `tools/run-checks`. Document it here when it exists.
+A SQL check is a script plus the output it must produce. `checks/postgresql-001/check.sql` is the reference.
+
+```sql
+-- Check for <id> (marked answer: c): only option c says 1 and 2.
+CREATE TABLE orders (id int PRIMARY KEY, total numeric(10,2));
+INSERT INTO orders VALUES (1, 10), (2, NULL);
+
+-- --- snippet ---
+SELECT count(total) AS priced, count(*) AS all_orders FROM orders;
+-- --- end snippet ---
+
+-- --- expected ---
+-- priced|all_orders
+-- 1|2
+-- --- end expected ---
+```
+
+- PostgreSQL 16. Uppercase keywords, lowercase types and functions, snake_case identifiers.
+- The header comment names the question and the marked answer, and says which output only the marked option states.
+- Copy the question's SQL unchanged between `-- --- snippet ---` and `-- --- end snippet ---`; `tools/validate` compares them. Setup the question doesn't show goes before the snippet.
+- run-checks runs the script in a fresh database it creates and drops, so the script needs no cleanup. Statements run one at a time with autocommit, as in psql. `BEGIN`/`COMMIT` work; psql meta-commands (`\set`) and `BEGIN ATOMIC` function bodies don't.
+- The expected block comes last. Each line starts with `--`. It holds the output of every statement that returns rows: a header of column names, then one line per row, values separated by `|`, in PostgreSQL's text format (`t`, `10.00`, `2026-11-02 08:00:00+00`) and `NULL` for null. Statements without rows (DDL, plain `INSERT`) print nothing. A blank `--` line separates consecutive results.
+- A failing statement prints `ERROR <SQLSTATE>: <message>` and stops the script, so an answer that is an error is asserted the same way. As in psql, rows it returned before failing aren't printed.
+- Values aren't escaped, as in psql: null and the text `NULL` print the same, and so does a `|` inside a value. When the difference matters to the answer, select `quote_nullable(x)` or `x IS NULL` instead of `x`.
+- Trailing spaces don't count, because `.editorconfig` trims them.
+- To write the block, leave it empty, run `tools/run-checks <id>`, and copy the output it prints after the failure, once you've confirmed it is the marked answer.
 
 ## YAML (questions, concepts, roadmaps)
 
@@ -71,7 +95,7 @@ The schemas and `tools/validate` enforce structure. Beyond that, follow the exis
 - Short records use inline maps with spaces inside the braces: `- { id: a, text: "..." }`.
 - Code in a question is C# in the style above, about 20 lines at most.
 
-What makes a good question (no trivia, option lengths, explanations, sources) is in the PLAN.md section "Question writing rules". It isn't repeated here.
+What makes a good question (no trivia, option lengths, explanations, sources) is in the PLAN.md section "Question writing rules". It isn't repeated here. `tools/validate` enforces the parts a tool can decide: the longest option is at most 1.3 times the shortest (not for ordering questions); across the bank the correct option is the longest in at most 35% of single-choice questions, once there are 20; Learn links pin `?view=aspnetcore-10.0` (ASP.NET Core) or a 10.0 view (API reference), and PostgreSQL links use `/docs/16/`; a check's snippet matches the question's code; and no name from `private/denylist.txt` appears in roadmaps, concepts, questions or checks, as a word of its own or as part of a camelCase identifier (`AcmeOrders`, `myAcme`).
 
 ## Scripts (`tools/<name>`, `.githooks/`)
 

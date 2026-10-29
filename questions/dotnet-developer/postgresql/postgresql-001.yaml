@@ -1,0 +1,81 @@
+id: postgresql-001
+roadmap: dotnet-developer
+node: postgresql
+concept: not-in-subquery-null
+area: EF Core & PostgreSQL
+level: intermediate
+type: single-choice
+targets: { dotnet: "10.0", postgres: "16" }
+
+stem: |
+  A Shop database stores guest checkouts as orders without a customer. A report
+  counts the customers who never ordered, written two ways. On PostgreSQL 16,
+  what does the final query return? Each option lists not_in, then not_exists.
+
+code:
+  lang: sql
+  text: |
+    CREATE TABLE customers (id int PRIMARY KEY);
+    CREATE TABLE orders (
+        id int PRIMARY KEY,
+        customer_id int REFERENCES customers
+    );
+
+    INSERT INTO customers VALUES (1), (2), (3);
+    INSERT INTO orders VALUES (10, 1), (11, NULL); -- 11 is a guest checkout
+
+    SELECT
+        (SELECT count(*) FROM customers c
+         WHERE c.id NOT IN (SELECT customer_id FROM orders)) AS not_in,
+        (SELECT count(*) FROM customers c
+         WHERE NOT EXISTS (
+             SELECT 1 FROM orders o WHERE o.customer_id = c.id)) AS not_exists;
+
+options:
+  - { id: a, text: "2 and 2" }
+  - { id: b, text: "0 and 2" }
+  - { id: c, text: "2 and 0" }
+  - { id: d, text: "0 and 0" }
+answer: b
+
+explanation:
+  takeaway: >-
+    Once the subquery returns a NULL, `NOT IN` is never true: false for a match,
+    null otherwise, so WHERE drops every row. `NOT EXISTS` ignores the NULL.
+  details: |
+    For customer 2, `NOT IN` compares 2 with every `customer_id`: `2 <> 1` is
+    true, but `2 <> NULL` is null, and true AND null is null. The PostgreSQL docs
+    state it directly: with no equal value and at least one null on the right,
+    `NOT IN` yields null, not true. Customer 1 has an order, so its test is
+    false. WHERE keeps a row only when the condition is true, so `not_in` is 0.
+
+    `NOT EXISTS` only asks whether the correlated subquery returns a row. The
+    guest order's NULL never equals any `c.id`, so customers 2 and 3 have no
+    matching order and both count: `not_exists` is 2.
+
+    The tempting `2 and 2` assumes `NOT IN` skips NULLs the way `count(column)`
+    does. It doesn't: one NULL in the list makes the test unknown for every
+    unmatched row. Filter with `WHERE customer_id IS NOT NULL`, or use `NOT EXISTS`.
+
+sources:
+  - kind: proof
+    title: "PostgreSQL 16 docs §9.23.3: NOT IN"
+    url: https://www.postgresql.org/docs/16/functions-subquery.html#FUNCTIONS-SUBQUERY-NOTIN
+    look_for: "With no equal right-hand value and at least one right-hand null, the result of NOT IN is null, not true"
+    checked: 2026-10-29
+  - kind: proof
+    title: "PostgreSQL 16 docs §7.2.2: The WHERE Clause"
+    url: https://www.postgresql.org/docs/16/queries-table-expressions.html#QUERIES-WHERE
+    look_for: "A row is kept only if the condition is true; if it is false or null, the row is discarded"
+    checked: 2026-10-29
+  - kind: proof
+    title: "PostgreSQL 16 docs §9.23.1: EXISTS"
+    url: https://www.postgresql.org/docs/16/functions-subquery.html#FUNCTIONS-SUBQUERY-EXISTS
+    look_for: "EXISTS is true if the subquery returns at least one row, and false if it returns none"
+    checked: 2026-10-29
+
+verification:
+  method: sql
+  check: checks/postgresql-001/check.sql
+
+status: draft

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Gate 1: checks every roadmap, concept and question file against the schemas and against each other.
-# Prints file:line:column errors and exits 1 if there are any.
+# Gate 1: checks every roadmap, concept and question file against the schemas, against each other,
+# and against the lint rules. Prints file:line:column errors and exits 1 if there are any.
+# The denylist always comes from this clone's private/, also when --root points at a copy (pre-commit).
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-exec dotnet run --project "$root/tools/QuizBank" --verbosity quiet -- validate --root "$root" "$@"
+exec dotnet run --project "$root/tools/QuizBank" --verbosity quiet -- validate --root "$root" --denylist "$root/private/denylist.txt" "$@"

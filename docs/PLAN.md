@@ -287,7 +287,7 @@ A static app in `app/`, deployed to GitHub Pages, lets coworkers self-assess per
 
 ## CI workflows
 
-Three GitHub Actions workflows, all using the .NET 10 SDK (`actions/setup-dotnet`) and a PostgreSQL 16 service container where checks need a database.
+Three GitHub Actions workflows, all using the .NET 10 SDK (`actions/setup-dotnet`). Where checks need a database, `tools/run-checks` starts a PostgreSQL 16 container itself, so CI runs the same server as local runs.
 
 | Workflow | Trigger | What it does |
 | --- | --- | --- |

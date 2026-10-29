@@ -40,6 +40,11 @@
   area: EF Core & PostgreSQL
   nodes: [postgresql, ef-core]
 
+- id: not-in-subquery-null
+  idea: "Once its subquery returns a NULL, x NOT IN (subquery) is never true, so WHERE drops every row; NOT EXISTS has no such trap"
+  area: EF Core & PostgreSQL
+  nodes: [postgresql, sql-basics]
+
 # Async, DI & architecture
 
 - id: whenall-await-rethrows-one
