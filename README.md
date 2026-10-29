@@ -19,8 +19,8 @@ The full plan, decisions and milestones are in [docs/PLAN.md](docs/PLAN.md).
 | `tools/` | `QuizBank` (.NET 10 console app), its tests, and one wrapper script per tool |
 | `private/` | Git-ignored: weekly exports and the name denylist |
 
-Still to come, by milestone: lint, run-checks, link checker and the checks CI job (2); the
-`write-quiz-batch` skill and its subagents (3); the roadmap app in `app/` (5).
+Still to come, by milestone: the `write-quiz-batch` skill and its subagents (3); the roadmap
+app in `app/` (5).
 
 Contributing, for people and agents: [AGENTS.md](AGENTS.md), with the style in
 [docs/CODE_STYLE.md](docs/CODE_STYLE.md) and the testing strategy in
@@ -37,15 +37,37 @@ tools/validate
 It checks every roadmap, concept and question against its schema, then against each other:
 unique ids, file paths that match the roadmap, node and id, nodes and concepts that exist,
 answers and blind-solve picks that are real option ids, and check files where the
-verification method needs one. Errors print as `file:line:column: message`, and the exit
-code is 1 if there are any.
+verification method needs one. Then the lint rules: option lengths, pinned docs versions,
+and the names in `private/denylist.txt` when that file exists. Errors print as
+`file:line:column: message`, and the exit code is 1 if there are any.
 
-## Run a check
+## Run the checks
 
-A check reproduces the question's snippet and exits 0 only when the marked answer holds:
+A check reproduces the question's snippet and passes only when the marked answer holds.
+`tools/run-checks` runs them all, or the ids you pass. Database checks need Docker: it
+starts a PostgreSQL 16 container for the run and gives each check its own database.
+
+```bash
+tools/run-checks
+```
+
+```bash
+tools/run-checks --changed-since main
+```
+
+One C# check also runs on its own:
 
 ```bash
 dotnet run checks/csharp-001/check.cs
+```
+
+## Check the links
+
+`tools/check-links` opens every source link and checks that the page and the anchor it
+points to exist. It needs the network; CI runs it on every PR.
+
+```bash
+tools/check-links
 ```
 
 ## Test the tools
@@ -56,9 +78,10 @@ dotnet test --solution QuizTime.slnx
 
 ## Before you commit
 
-`tools/verify` runs what CI runs: format check, build and tests, validate, and actionlint
-when it's installed (CI always runs it). Enable the pre-commit hook once per clone; it runs
-`tools/validate` on the staged files of every commit:
+`tools/verify` runs what CI's verify job runs: format check, build and tests, validate, and
+actionlint when it's installed (CI always runs it). If you changed questions or checks, also
+run `tools/run-checks --changed-since main`. Enable the pre-commit hook once per clone; it
+runs `tools/validate` on the staged files of every commit:
 
 ```bash
 git config core.hooksPath .githooks
