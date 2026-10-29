@@ -1,0 +1,90 @@
+# Testing and verification strategy
+
+Two different things have to be correct here, and they're verified in different ways:
+
+- **Code:** the tools, the check harness and the app. Verified by tests, the compiler (warnings are errors) and formatting checks.
+- **Content:** each question's marked answer. Verified by the five gates in the PLAN.md section "Verification pipeline", and re-checked every week after merge.
+
+A bug in the code weakens the content without anyone noticing: a validator that misses a rule lets bad questions through. So tool tests are held to a higher bar than usual. Every rule must be shown to fire.
+
+## Where each check runs
+
+| Check | Local | pre-commit | PR CI | `main` CI | Weekly | Available |
+| --- | --- | --- | --- | --- | --- | --- |
+| `dotnet format` (tools and checks) | `tools/verify` | | ✓ | ✓ | | now |
+| Build with warnings as errors, tool tests | `tools/verify` | | ✓ | ✓ | | now |
+| Gate 1: schemas and cross-references | `tools/validate` | ✓ | ✓ | ✓ | | now |
+| actionlint | `tools/verify` if installed | | ✓ | ✓ | | now |
+| Gate 1: lint rules (option lengths, denylist) | `tools/lint` | ✓ | ✓ | ✓ | | milestone 2 |
+| Gate 2: run checks | `tools/run-checks` | | changed questions | all | all | milestone 2 |
+| Link check | `tools/check-links` | | changed questions | all | all | milestone 2 |
+| Gates 3–5: blind solve, audit, fix loop | write-quiz-batch skill | | | | | milestone 3 |
+| Gate calibration | write-quiz-batch skill | | | | | milestone 3 |
+
+CI runs `tools/verify`. The denylist needs `private/`, which CI can't see, so it only runs locally: in the pre-commit hook and in the batch skill. When a tool lands, wire it into `tools/verify`, the hook if it's fast, and CI in the same PR, and update this table.
+
+## Testing the tools
+
+xunit v3 on Microsoft.Testing.Platform, in `tools/QuizBank.Tests`. Run all of them with `dotnet test --solution QuizTime.slnx`, or one with `--filter-method "*Test_name"` (see AGENTS.md).
+
+**Break one thing in a throwaway bank.** `TestRepo` writes the real schemas plus a small valid roadmap, concept file, question and check to a temp folder. A test changes one thing with `Replace`, `Move`, `Write` or `Delete`, runs the validator, and asserts the exact message and the line it points to. `TestRepo` is the shared fixture, so new tests don't need fixture files.
+
+- Every rule gets at least one test that makes it fire, and the sample bank must stay clean (`Sample_repo_is_valid`). Write that test first, watch it fail, then implement the rule. A rule with no failing test is unproven.
+- Assert the full message and its location, not just "some error". Messages are part of the interface: agents read them and fix files from them.
+- Test the commands through `Cli.Run` with string writers: exit codes, the summary line, and usage errors.
+- Keep one test against the real repo (`Real_repo_is_valid`), so a bad commit to the bank fails the tests too.
+- Test names read as sentences: `Unknown_node_is_reported`, `Bad_usage_exits_with_2`. Group related tests with a `// Questions: references` style comment.
+
+**No network in tests.** The link checker gets a fake handler. Real link checks run only in the CI jobs meant for them.
+
+**Docker tests** cover the run-checks harness end to end: a passing check, a failing assertion, one that doesn't compile, and a SQL check. They need PostgreSQL 16 in Docker. Milestone 2 decides how they're marked and skipped when Docker isn't running, and documents it here.
+
+## Verifying questions
+
+The gates, in short. The full rules are in PLAN.md.
+
+1. **Schema and lint** (`tools/validate`, then `tools/lint` from milestone 2).
+2. **Run it** (`tools/run-checks`): `checks/<id>/check.cs` or `check.sql` asserts the marked answer.
+3. **Blind solve** (`blind-solver` subagent): no tools, a different model from the writer, never sees the answer.
+4. **Adversarial audit** (`adversarial-reviewer` subagent): tries to break the question and opens every source.
+5. **Fix loop:** at most two rounds. Anything still failing is dropped and listed in the PR.
+
+Rules for agents running the gates:
+
+- Run them in order. A question that fails gate N doesn't go to gate N+1 until it's fixed.
+- Record each result in the question's `verification` block from the gate's actual output, with the date. Never record a result you didn't observe.
+- **Prove a check can fail.** Before committing a new check, change its marked answer, confirm it prints `FAIL`, then change it back. A check that passes no matter what proves nothing.
+- `method: docs` questions have no runnable proof. Gate 4 treats them with extra suspicion, and the PR lists them.
+
+### Gate calibration
+
+The gates are prompts and code, and both drift. Milestone 3 plants three faulty questions: a wrong marked answer, two defensible answers, and a false sentence in an explanation. Keep them outside `questions/` so they never enter the pool, for example in `tools/QuizBank.Tests/calibration/`.
+
+Re-run calibration whenever `SKILL.md`, a subagent prompt or the model behind a gate changes. Each planted fault must still be caught, and the run report names the gate that caught it. Put the results in the PR.
+
+## Verifying your change
+
+`tools/verify` is necessary, not sufficient. Also do the check for what you changed:
+
+| You changed | Also do |
+| --- | --- |
+| A tool | Run it on the real bank and read the output. For a new rule, show it firing in its test. |
+| A question or check | Run `tools/validate` and `dotnet run checks/<id>/check.cs`, prove the check can fail, then run gates 3–4 through the skill. |
+| A schema | Run `tools/validate` on the whole bank, and add tests for the constraint in both directions. |
+| A workflow | Push the branch and watch the run with `gh run watch`. A workflow isn't verified until it has run. |
+| A skill or subagent prompt | Run gate calibration. |
+| The app | Build the JSON, open the page in a browser, take one node quiz end to end, reload, and confirm the result persisted. |
+| Docs only | Check that every command and path you mention exists. |
+
+Say in the PR what you ran and what you couldn't run (for example, Docker unavailable). "Should work" isn't verification.
+
+## CI
+
+- **`ci.yml`** (now): on PRs, pushes to `main` and manual runs. One job runs `tools/verify` on the SDK from `global.json`; another runs actionlint.
+- **Milestone 2** adds a `checks` job to `ci.yml`: a PostgreSQL 16 service container, run-checks for changed questions on PRs (all questions on `main`), and the link check. It also adds `weekly-recheck.yml`, which runs every check and link and, on failure, opens an issue listing the questions to quarantine.
+- **Milestone 5** adds `pages.yml`: build JSON from reviewed questions and deploy the app.
+
+## Flaky checks
+
+- A flaky check is a bug. Don't re-run until green. Find the nondeterminism (time, ordering, network) and remove it.
+- The link checker retries transient errors (timeouts, 429, 5xx) with backoff before failing. A 404 or a missing anchor fails at once.
