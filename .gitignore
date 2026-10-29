@@ -65,3 +65,7 @@ private/
 .vscode/
 *.user
 .DS_Store
+
+# Claude Code: personal settings and app-managed worktrees
+.claude/settings.local.json
+.claude/worktrees/
