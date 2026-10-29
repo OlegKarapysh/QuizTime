@@ -127,6 +127,7 @@ public sealed partial class BankValidator
     [GeneratedRegex(@"^/(?:[a-z]{2}-[a-z]{2}/)?dotnet/api(?:/|$)", RegexOptions.IgnoreCase)]
     private static partial Regex LearnApiReference();
 
-    [GeneratedRegex(@"^/docs/([^/]+)/")]
+    // Only versions: /docs/release/16.4/ (release notes) and /docs/manuals/ aren't versioned docs.
+    [GeneratedRegex(@"^/docs/(\d+(?:\.\d+)?|current|devel)/")]
     private static partial Regex PostgresDocs();
 }

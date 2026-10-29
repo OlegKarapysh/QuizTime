@@ -370,6 +370,8 @@ public sealed class BankValidatorTests : IDisposable
         "Pin API reference links to a .NET 10 view: add ?view= with one of net-10.0, net-10.0-pp, aspnetcore-10.0, efcore-10.0.")]
     [InlineData("https://www.postgresql.org/docs/current/functions-subquery.html",
         "Link the PostgreSQL 16 docs: use /docs/16/ instead of /docs/current/.")]
+    [InlineData("https://www.postgresql.org/docs/9.6/functions-subquery.html",
+        "Link the PostgreSQL 16 docs: use /docs/16/ instead of /docs/9.6/.")]
     public void Docs_links_must_pin_the_target_versions(string url, string message)
     {
         _repo.Replace(TestRepo.QuestionPath, "https://learn.microsoft.com/dotnet/api/system.string.intern?view=net-10.0", url);
@@ -383,6 +385,7 @@ public sealed class BankValidatorTests : IDisposable
     [InlineData("https://learn.microsoft.com/en-us/ef/core/change-tracking/")]
     [InlineData("https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/equality-operators")]
     [InlineData("https://www.postgresql.org/docs/16/functions-subquery.html#FUNCTIONS-SUBQUERY-NOTIN")]
+    [InlineData("https://www.postgresql.org/docs/release/16.4/")]
     public void Pinned_and_unversioned_docs_links_are_allowed(string url)
     {
         _repo.Replace(TestRepo.QuestionPath, "https://learn.microsoft.com/dotnet/api/system.string.intern?view=net-10.0", url);
