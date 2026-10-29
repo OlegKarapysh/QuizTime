@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Everything CI runs: formatting, build (warnings are errors), tests, and gate 1 on the real bank.
+# Run before every commit and PR. Stops at the first failure.
+set -euo pipefail
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$root"
+
+step() { printf '\n== %s\n' "$1"; }
+
+step "format: tools"
+dotnet format QuizTime.slnx --verify-no-changes
+step "format: checks"
+dotnet format whitespace checks --folder --verify-no-changes
+step "test"
+dotnet test --solution QuizTime.slnx
+step "validate"
+tools/validate
+step "workflows"
+if command -v actionlint >/dev/null; then actionlint; else echo "skipped: actionlint not installed (brew install actionlint); CI runs it"; fi

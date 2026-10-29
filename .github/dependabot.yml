@@ -1,0 +1,18 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # Versions live in tools/Directory.Packages.props (central package management).
+  - package-ecosystem: nuget
+    directory: /tools
+    schedule:
+      interval: monthly
+    groups:
+      nuget:
+        patterns: ["*"]

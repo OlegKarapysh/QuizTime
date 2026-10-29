@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Enable once per clone: git config core.hooksPath .githooks
+# Gate 1 runs here because CI can't see private/: the name denylist (milestone 2) only works locally.
+# It validates what is staged, not the working tree: unstaged fixes and untracked files must not
+# decide whether a commit passes. The denylist itself lives in the real root's private/.
+set -euo pipefail
+top="$(git rev-parse --show-toplevel)"
+
+staged="$(mktemp -d)"
+trap 'rm -rf "$staged"' EXIT
+git checkout-index --all --prefix="$staged/"
+
+"$top/tools/validate" --root "$staged"

@@ -19,8 +19,12 @@ The full plan, decisions and milestones are in [docs/PLAN.md](docs/PLAN.md).
 | `tools/` | `QuizBank` (.NET 10 console app), its tests, and one wrapper script per tool |
 | `private/` | Git-ignored: weekly exports and the name denylist |
 
-Still to come, by milestone: lint, run-checks, link checker and CI (2); the
+Still to come, by milestone: lint, run-checks, link checker and the checks CI job (2); the
 `write-quiz-batch` skill and its subagents (3); the roadmap app in `app/` (5).
+
+Contributing, for people and agents: [AGENTS.md](AGENTS.md), with the style in
+[docs/CODE_STYLE.md](docs/CODE_STYLE.md) and the testing strategy in
+[docs/TESTING.md](docs/TESTING.md).
 
 ## Validate
 
@@ -49,3 +53,15 @@ dotnet run checks/csharp-001/check.cs
 ```bash
 dotnet test --solution QuizTime.slnx
 ```
+
+## Before you commit
+
+`tools/verify` runs what CI runs: format check, build and tests, validate, and actionlint
+when it's installed (CI always runs it). Enable the pre-commit hook once per clone; it runs
+`tools/validate` on the staged files of every commit:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+The full command list is in [AGENTS.md](AGENTS.md#commands).
