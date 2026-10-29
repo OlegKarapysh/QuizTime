@@ -26,13 +26,15 @@ public static class Cli
         Without --root, the repo root is the nearest directory at or above the current one
         that holds schema/question.schema.json.
 
-        Exit codes: 0 passed, 1 found errors, 2 bad usage or environment.
+        Exit codes: 0 passed, 1 found errors, 2 bad usage or environment, 130 cancelled (Ctrl+C).
         """;
 
     private sealed record Options(string Root, string? Denylist, string? ChangedSince, IReadOnlyList<string> Ids);
 
     /// <param name="httpHandler">The link checker's HTTP handler; tests pass a fake one.</param>
-    public static async Task<int> RunAsync(string[] args, TextWriter stdout, TextWriter stderr, HttpMessageHandler? httpHandler = null)
+    /// <param name="cancellationToken">Cancelled on Ctrl+C. The run stops, cleans up and exits with 130.</param>
+    public static async Task<int> RunAsync(
+        string[] args, TextWriter stdout, TextWriter stderr, HttpMessageHandler? httpHandler = null, CancellationToken cancellationToken = default)
     {
         if (args is ["-h" or "--help" or "help"])
         {
@@ -51,14 +53,19 @@ public static class Cli
             return command switch
             {
                 "validate" => Validate(options, stdout),
-                "run-checks" => await RunChecksAsync(options, stdout, stderr),
-                _ => await CheckLinksAsync(options, stdout, httpHandler),
+                "run-checks" => await RunChecksAsync(options, stdout, stderr, cancellationToken),
+                _ => await CheckLinksAsync(options, stdout, httpHandler, cancellationToken),
             };
         }
         catch (EnvironmentException e)
         {
             await stderr.WriteLineAsync(e.Message);
             return 2;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            await stderr.WriteLineAsync($"{command}: cancelled.");
+            return 130;
         }
     }
 
@@ -111,17 +118,17 @@ public static class Cli
         return report.IsValid ? 0 : 1;
     }
 
-    private static async Task<int> RunChecksAsync(Options options, TextWriter stdout, TextWriter stderr)
+    private static async Task<int> RunChecksAsync(Options options, TextWriter stdout, TextWriter stderr, CancellationToken cancellationToken)
     {
-        var jobs = CheckRunner.Jobs(options.Root, await SelectAsync(options));
+        var jobs = CheckRunner.Jobs(options.Root, await SelectAsync(options, cancellationToken));
         if (jobs.Count == 0)
         {
             await stdout.WriteLineAsync("run-checks: OK, no checks selected");
             return 0;
         }
 
-        await using var server = jobs.Any(job => job.NeedsDatabase) ? await PostgresServer.StartAsync(stderr, CancellationToken.None) : null;
-        var results = await CheckRunner.RunAsync(options.Root, jobs, server, CancellationToken.None);
+        await using var server = jobs.Any(job => job.NeedsDatabase) ? await PostgresServer.StartAsync(stderr, cancellationToken) : null;
+        var results = await CheckRunner.RunAsync(options.Root, jobs, server, cancellationToken);
 
         foreach (var result in results)
         {
@@ -138,12 +145,13 @@ public static class Cli
         return failed == 0 ? 0 : 1;
     }
 
-    private static async Task<int> CheckLinksAsync(Options options, TextWriter stdout, HttpMessageHandler? httpHandler)
+    private static async Task<int> CheckLinksAsync(
+        Options options, TextWriter stdout, HttpMessageHandler? httpHandler, CancellationToken cancellationToken)
     {
-        var questions = (await SelectAsync(options)).Where(q => q.Value.Status != QuestionStatus.Retired).ToList();
+        var questions = (await SelectAsync(options, cancellationToken)).Where(q => q.Value.Status != QuestionStatus.Retired).ToList();
 
         using var defaultHandler = httpHandler is null ? LinkChecker.CreateDefaultHandler() : null;
-        var report = await new LinkChecker(httpHandler ?? defaultHandler!).CheckAsync(questions, CancellationToken.None);
+        var report = await new LinkChecker(httpHandler ?? defaultHandler!).CheckAsync(questions, cancellationToken);
         foreach (var error in report.Errors) await stdout.WriteLineAsync(error.ToString());
 
         var counts = $"{Count(report.Links, "link")} in {Count(report.Questions, "question")}";
@@ -154,7 +162,7 @@ public static class Cli
     }
 
     /// <summary>The questions a run-checks or check-links run covers. The bank must pass validation first.</summary>
-    private static async Task<IReadOnlyList<BankFile<Question>>> SelectAsync(Options options)
+    private static async Task<IReadOnlyList<BankFile<Question>>> SelectAsync(Options options, CancellationToken cancellationToken)
     {
         var report = BankValidator.Validate(options.Root);
         if (!report.IsValid)
@@ -173,7 +181,7 @@ public static class Cli
         }
 
         if (options.ChangedSince is null) return report.QuestionFiles;
-        var changed = await QuestionSelection.ChangedFilesAsync(options.Root, options.ChangedSince, CancellationToken.None);
+        var changed = await QuestionSelection.ChangedFilesAsync(options.Root, options.ChangedSince, cancellationToken);
         return QuestionSelection.ByChangedFiles(report.QuestionFiles, changed);
     }
 

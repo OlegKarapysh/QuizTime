@@ -23,7 +23,7 @@ The tools are one .NET 10 console app. Each tool is a command (`quizbank validat
 **Commands**
 
 - `Cli.RunAsync(args, stdout, stderr)` parses arguments and returns the exit code. It takes writers instead of using `Console`, so tests call it directly.
-- Exit codes: `0` passed, `1` found errors, `2` bad usage or environment (unknown command, no repo root, Docker not running). Environment problems are thrown as `EnvironmentException` and turned into exit code 2 by `Cli`.
+- Exit codes: `0` passed, `1` found errors, `2` bad usage or environment (unknown command, no repo root, Docker not running), `130` cancelled with Ctrl+C. Environment problems are thrown as `EnvironmentException` and turned into exit code 2 by `Cli`. Ctrl+C and SIGTERM cancel the command's token instead of ending the process, so cleanup such as removing run-checks' container still runs.
 - Errors go to stdout, one per line, as `file:line:column: message` with the file relative to the repo root and forward slashes (`Diagnostic`). A summary line comes last, like `validate: OK, 1 roadmap (41 nodes), 11 concepts, 1 question`.
 - The tool's own messages are full sentences that end with a period and quote values in single quotes, and say how to fix the problem when it isn't obvious: `Concept 'x' does not list node 'linq'; add it to the concept in concepts/sample.yaml.` Schema errors pass through from JsonSchema.Net as they are, prefixed with the JSON pointer: `/targets/dotnet: Value is "integer" but should be "string"`.
 - Output is deterministic: same input, same lines in the same order, in any culture. Format numbers with the invariant culture. run-checks prints results in question id order even though checks run in parallel.

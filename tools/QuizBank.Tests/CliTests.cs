@@ -100,6 +100,21 @@ public sealed class CliTests
     }
 
     [Fact]
+    public async Task Cancelled_run_exits_with_130()
+    {
+        using var repo = new TestRepo();
+        using var cancellation = new CancellationTokenSource();
+        await cancellation.CancelAsync();
+        var stdout = new StringWriter { NewLine = "\n" };
+        var stderr = new StringWriter { NewLine = "\n" };
+
+        var exitCode = await Cli.RunAsync(["run-checks", "--root", repo.Root], stdout, stderr, cancellationToken: cancellation.Token);
+
+        Assert.Equal(130, exitCode);
+        Assert.Equal("run-checks: cancelled.\n", stderr.ToString());
+    }
+
+    [Fact]
     public async Task Run_checks_refuses_an_invalid_bank()
     {
         using var repo = new TestRepo();
