@@ -412,9 +412,13 @@ public sealed class BankValidatorTests : IDisposable
     [InlineData("the contoso app", true)]
     [InlineData("CONTOSO's orders", true)]
     [InlineData("Contoso.Orders", true)]
-    [InlineData("ContosoShop", false)]
-    [InlineData("MyContoso", false)]
-    public void Denylist_matches_whole_words_in_any_case(string text, bool matches)
+    [InlineData("class ContosoShop", true)]
+    [InlineData("var myContosoClient", true)]
+    [InlineData("MyContoso", true)]
+    [InlineData("Contosos", false)]
+    [InlineData("contososhop", false)]
+    [InlineData("NotContosoLike", true)]
+    public void Denylist_matches_whole_words_and_camel_case_parts_in_any_case(string text, bool matches)
     {
         var denylist = Denylist.Parse(["Contoso"]);
 

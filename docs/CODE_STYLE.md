@@ -94,7 +94,7 @@ The schemas and `tools/validate` enforce structure. Beyond that, follow the exis
 - Short records use inline maps with spaces inside the braces: `- { id: a, text: "..." }`.
 - Code in a question is C# in the style above, about 20 lines at most.
 
-What makes a good question (no trivia, option lengths, explanations, sources) is in the PLAN.md section "Question writing rules". It isn't repeated here. `tools/validate` enforces the parts a tool can decide: the longest option is at most 1.3 times the shortest (not for ordering questions); across the bank the correct option is the longest in at most 35% of single-choice questions, once there are 20; Learn links pin `?view=aspnetcore-10.0` (ASP.NET Core) or a 10.0 view (API reference), and PostgreSQL links use `/docs/16/`; and no name from `private/denylist.txt` appears in roadmaps, concepts, questions or checks.
+What makes a good question (no trivia, option lengths, explanations, sources) is in the PLAN.md section "Question writing rules". It isn't repeated here. `tools/validate` enforces the parts a tool can decide: the longest option is at most 1.3 times the shortest (not for ordering questions); across the bank the correct option is the longest in at most 35% of single-choice questions, once there are 20; Learn links pin `?view=aspnetcore-10.0` (ASP.NET Core) or a 10.0 view (API reference), and PostgreSQL links use `/docs/16/`; and no name from `private/denylist.txt` appears in roadmaps, concepts, questions or checks, as a word of its own or as part of a camelCase identifier (`AcmeOrders`, `myAcme`).
 
 ## Scripts (`tools/<name>`, `.githooks/`)
 

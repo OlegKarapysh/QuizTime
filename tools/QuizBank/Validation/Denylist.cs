@@ -6,11 +6,17 @@ namespace QuizBank.Validation;
 public readonly record struct DenylistMatch(int Offset, int EntryLine);
 
 /// <summary>
-/// Names that must never appear in the public bank (private/denylist.txt): one per line, matched as whole
-/// words in any case. Blank lines and lines starting with # are ignored.
+/// Names that must never appear in the public bank (private/denylist.txt): one per line, matched in any case as
+/// whole words or as parts of camelCase identifiers. Blank lines and lines starting with # are ignored.
 /// </summary>
 public sealed class Denylist
 {
+    // A side of the name is a hump when a lowercase letter meets an uppercase one there: AcmeOrders, myAcme.
+    // Letters and digits otherwise mean the name is part of a longer word: Acmes, Novak.
+    private const string Hump = @"(?<=(?-i:\p{Ll}))(?=(?-i:\p{Lu}))";
+    private const string Start = @"(?:(?<![\p{L}\p{N}])|" + Hump + ")";
+    private const string End = @"(?:(?![\p{L}\p{N}])|" + Hump + ")";
+
     private readonly IReadOnlyList<(int Line, Regex Pattern)> _entries;
 
     private Denylist(IReadOnlyList<(int Line, Regex Pattern)> entries) => _entries = entries;
@@ -25,9 +31,7 @@ public sealed class Denylist
             var name = lines[i].Trim();
             if (name.Length == 0 || name.StartsWith('#')) continue;
 
-            // Letters and digits on either side mean the name is part of a longer word.
-            var pattern = $@"(?<![\p{{L}}\p{{N}}]){Regex.Escape(name)}(?![\p{{L}}\p{{N}}])";
-            entries.Add((i + 1, new Regex(pattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)));
+            entries.Add((i + 1, new Regex(Start + Regex.Escape(name) + End, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)));
         }
 
         return new Denylist(entries);
