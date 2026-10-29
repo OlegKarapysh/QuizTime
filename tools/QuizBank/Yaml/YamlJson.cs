@@ -82,7 +82,7 @@ public static partial class YamlJson
                     // YamlDotNet already rejects duplicate keys while loading.
                     if (keyNode is not YamlScalarNode { Value: { } key })
                         throw new YamlLoadException("Mapping keys must be plain strings.", Position(keyNode.Start));
-                    obj[key] =Convert(valueNode, $"{pointer}/{EscapePointer(key)}", positions);
+                    obj[key] = Convert(valueNode, $"{pointer}/{EscapePointer(key)}", positions);
                 }
                 return obj;
 
