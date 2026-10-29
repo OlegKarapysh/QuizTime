@@ -183,8 +183,7 @@ public sealed record SqlScript(IReadOnlyList<SqlStatement> Statements, IReadOnly
 
     private static bool IsIdentifierChar(char c) => char.IsLetterOrDigit(c) || c is '_' or '$';
 
-    private static int LineOf(string text, int offset) => 1 + text.AsSpan(0, offset).Count('\n');
+    private static int LineOf(string text, int offset) => SourcePosition.FromOffset(text, offset).Line;
 
-    private static SqlScriptException Error(string text, int offset, string message) =>
-        new(message, new SourcePosition(LineOf(text, offset), offset - (text.LastIndexOf('\n', Math.Max(offset - 1, 0)) + 1) + 1));
+    private static SqlScriptException Error(string text, int offset, string message) => new(message, SourcePosition.FromOffset(text, offset));
 }

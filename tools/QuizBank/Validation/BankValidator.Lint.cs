@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using QuizBank.Model;
+using QuizBank.Yaml;
 
 namespace QuizBank.Validation;
 
@@ -108,10 +109,9 @@ public sealed partial class BankValidator
             var text = File.ReadAllText(file);
             foreach (var match in denylist.Matches(text))
             {
-                var line = 1 + text.AsSpan(0, match.Offset).Count('\n');
-                var column = match.Offset - (text.LastIndexOf('\n', Math.Max(match.Offset - 1, 0)) + 1) + 1;
+                var position = SourcePosition.FromOffset(text, match.Offset);
                 // The message names the denylist line, never the name: output may be pasted into public places.
-                _errors.Add(new Diagnostic(Relative(file), line, column,
+                _errors.Add(new Diagnostic(Relative(file), position.Line, position.Column,
                     $"Matches the name on line {match.EntryLine} of the denylist; use a neutral name such as Shop, Orders or Billing."));
             }
         }
