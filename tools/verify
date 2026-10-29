@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Everything CI runs: formatting, build (warnings are errors), tests, and gate 1 on the real bank.
-# Run before every commit and PR. Stops at the first failure.
+# Everything CI's verify job runs: formatting, build (warnings are errors), tests, and gate 1 on the
+# real bank. Run before every commit and PR. Stops at the first failure. CI's checks job also runs
+# tools/run-checks and tools/check-links, which need Docker and the network.
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"
