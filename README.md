@@ -56,9 +56,12 @@ dotnet test --solution QuizTime.slnx
 
 ## Before you commit
 
-`tools/verify` runs everything CI runs: format check, build and tests, and validate. Enable
-the pre-commit hook once per clone, which runs `tools/validate` on every commit:
+`tools/verify` runs what CI runs: format check, build and tests, validate, and actionlint
+when it's installed (CI always runs it). Enable the pre-commit hook once per clone; it runs
+`tools/validate` on the staged files of every commit:
 
 ```bash
 git config core.hooksPath .githooks
 ```
+
+The full command list is in [AGENTS.md](AGENTS.md#commands).

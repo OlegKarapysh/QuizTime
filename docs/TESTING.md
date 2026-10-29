@@ -15,13 +15,13 @@ A bug in the code weakens the content without anyone noticing: a validator that 
 | Build with warnings as errors, tool tests | `tools/verify` | | ✓ | ✓ | | now |
 | Gate 1: schemas and cross-references | `tools/validate` | ✓ | ✓ | ✓ | | now |
 | actionlint | `tools/verify` if installed | | ✓ | ✓ | | now |
-| Gate 1: lint rules (option lengths, denylist) | `tools/lint` | ✓ | ✓ | ✓ | | milestone 2 |
+| Gate 1: lint rules (option lengths, denylist) | `tools/validate` | ✓ | ✓, without denylist | ✓, without denylist | | milestone 2 |
 | Gate 2: run checks | `tools/run-checks` | | changed questions | all | all | milestone 2 |
 | Link check | `tools/check-links` | | changed questions | all | all | milestone 2 |
 | Gates 3–5: blind solve, audit, fix loop | write-quiz-batch skill | | | | | milestone 3 |
 | Gate calibration | write-quiz-batch skill | | | | | milestone 3 |
 
-CI runs `tools/verify`. The denylist needs `private/`, which CI can't see, so it only runs locally: in the pre-commit hook and in the batch skill. When a tool lands, wire it into `tools/verify`, the hook if it's fast, and CI in the same PR, and update this table.
+CI runs `tools/verify`. PLAN.md puts the lint rules in gate 1, so they belong in `tools/validate` and run wherever it runs. The denylist needs `private/`, which CI can't see, so it only runs locally: in the pre-commit hook and in the batch skill. The hook validates a copy of the staged files, so the denylist must be read from the real repo root, not from `--root`. When a tool lands, wire it into `tools/verify`, the hook if it's fast, and CI in the same PR, and update this table.
 
 ## Testing the tools
 
@@ -37,13 +37,13 @@ xunit v3 on Microsoft.Testing.Platform, in `tools/QuizBank.Tests`. Run all of th
 
 **No network in tests.** The link checker gets a fake handler. Real link checks run only in the CI jobs meant for them.
 
-**Docker tests** cover the run-checks harness end to end: a passing check, a failing assertion, one that doesn't compile, and a SQL check. They need PostgreSQL 16 in Docker. Milestone 2 decides how they're marked and skipped when Docker isn't running, and documents it here.
+**Docker tests** cover the run-checks harness end to end: a passing check, a failing assertion, one that doesn't compile, and a SQL check. They need PostgreSQL 16 in Docker. Locally they may skip when Docker isn't running, with a visible message. In CI they must never skip: CI sets `QUIZTIME_REQUIRE_DOCKER=1`, and a missing Docker fails the run, so a broken harness can't pass as skipped. Milestone 2 implements this and documents the details here.
 
 ## Verifying questions
 
 The gates, in short. The full rules are in PLAN.md.
 
-1. **Schema and lint** (`tools/validate`, then `tools/lint` from milestone 2).
+1. **Schema and lint** (`tools/validate`; the lint rules arrive in milestone 2).
 2. **Run it** (`tools/run-checks`): `checks/<id>/check.cs` or `check.sql` asserts the marked answer.
 3. **Blind solve** (`blind-solver` subagent): no tools, a different model from the writer, never sees the answer.
 4. **Adversarial audit** (`adversarial-reviewer` subagent): tries to break the question and opens every source.
@@ -58,7 +58,7 @@ Rules for agents running the gates:
 
 ### Gate calibration
 
-The gates are prompts and code, and both drift. Milestone 3 plants three faulty questions: a wrong marked answer, two defensible answers, and a false sentence in an explanation. Keep them outside `questions/` so they never enter the pool, for example in `tools/QuizBank.Tests/calibration/`.
+The gates are prompts and code, and both drift. Milestone 3 plants three faulty questions: a wrong marked answer, two defensible answers, and a false sentence in an explanation. Keep them in a top-level `calibration/` folder laid out like the bank (`calibration/questions/`, `calibration/checks/`). That keeps them out of the pool in `questions/`, and out of `tools/`, where the test project would compile their checks and `tools/Directory.*.props` would break them as file-based apps.
 
 Re-run calibration whenever `SKILL.md`, a subagent prompt or the model behind a gate changes. Each planted fault must still be caught, and the run report names the gate that caught it. Put the results in the PR.
 
@@ -80,8 +80,9 @@ Say in the PR what you ran and what you couldn't run (for example, Docker unavai
 
 ## CI
 
-- **`ci.yml`** (now): on PRs, pushes to `main` and manual runs. One job runs `tools/verify` on the SDK from `global.json`; another runs actionlint.
-- **Milestone 2** adds a `checks` job to `ci.yml`: a PostgreSQL 16 service container, run-checks for changed questions on PRs (all questions on `main`), and the link check. It also adds `weekly-recheck.yml`, which runs every check and link and, on failure, opens an issue listing the questions to quarantine.
+- **`ci.yml`** (now): on PRs, pushes to `main` and manual runs. One job runs `tools/verify` on the SDK from `global.json`; another runs actionlint. A new push to a PR cancels the PR's older run; runs on `main` always finish.
+- **Milestone 2** adds a `checks` job to `ci.yml`: a PostgreSQL 16 service container, run-checks for changed questions on PRs (all questions on `main`), and the link check.
+- **`weekly-recheck.yml`** comes once run-checks and the link checker exist; PLAN.md doesn't tie it to a milestone. It runs every check and link and, on failure, opens an issue listing the questions to quarantine.
 - **Milestone 5** adds `pages.yml`: build JSON from reviewed questions and deploy the app.
 
 ## Flaky checks
