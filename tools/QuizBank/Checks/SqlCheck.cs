@@ -26,7 +26,17 @@ public static class SqlCheck
             return CheckResult.Fail(job, new Diagnostic(job.Path, e.Position.Line, e.Position.Column, e.Message));
         }
 
-        var output = await ExecuteAsync(script.Statements, connectionString, cancellationToken);
+        SqlOutput output;
+        try
+        {
+            output = await ExecuteAsync(script.Statements, connectionString, cancellationToken);
+        }
+        catch (NpgsqlException e)
+        {
+            // Statement errors are part of the output; this is the connection itself failing.
+            return CheckResult.Fail(job, new Diagnostic(job.Path, null, null, $"The PostgreSQL connection failed: {e.Message}"));
+        }
+
         return Compare(job, script, output);
     }
 

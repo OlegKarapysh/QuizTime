@@ -128,6 +128,29 @@ public sealed class DatabaseCheckTests(PostgresFixture postgres) : IClassFixture
     }
 
     [Fact]
+    public async Task Connection_failure_fails_the_check()
+    {
+        var job = new CheckJob("csharp-001", CheckKind.Sql, TestRepo.SqlCheckPath, NeedsDatabase: true);
+        _repo.UseSqlCheck("SELECT 1;\n-- --- expected ---\n-- --- end expected ---\n");
+        var connectionString = new Npgsql.NpgsqlConnectionStringBuilder(postgres.Server.ConnectionString) { Database = "no_such_database" };
+
+        var result = await SqlCheck.RunAsync(job, _repo.Root, connectionString.ConnectionString, TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            $"{TestRepo.SqlCheckPath}: The PostgreSQL connection failed: 3D000: database \"no_such_database\" does not exist",
+            Assert.Single(result.Errors).ToString());
+    }
+
+    [Fact]
+    public async Task Server_that_refuses_a_database_ends_the_run()
+    {
+        var error = await Assert.ThrowsAsync<EnvironmentException>(() =>
+            postgres.Server.CreateDatabaseAsync("bad\"name", TestContext.Current.CancellationToken));
+
+        Assert.StartsWith("PostgreSQL could not run 'DROP DATABASE IF EXISTS \"bad\"name\" WITH (FORCE)': 42601: ", error.Message);
+    }
+
+    [Fact]
     public async Task Unexpected_error_names_the_failing_statement()
     {
         _repo.UseSqlCheck(Orders + """

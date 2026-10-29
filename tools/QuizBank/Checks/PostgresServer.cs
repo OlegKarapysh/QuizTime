@@ -69,10 +69,18 @@ public sealed class PostgresServer : IAsyncDisposable
             await ProcessRunner.RunAsync("docker", ["rm", "--force", _containerId], ".", DockerTimeout, CancellationToken.None);
     }
 
+    /// <summary>Runs a server-level command. When the server refuses one, no check can run, so the run stops.</summary>
     private async Task ExecuteAsync(string sql, CancellationToken cancellationToken)
     {
-        await using var command = _admin.CreateCommand(sql);
-        await command.ExecuteNonQueryAsync(cancellationToken);
+        try
+        {
+            await using var command = _admin.CreateCommand(sql);
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+        catch (NpgsqlException e)
+        {
+            throw new EnvironmentException($"PostgreSQL could not run '{sql}': {e.Message}");
+        }
     }
 
     private static async Task<PostgresServer> StartContainerAsync(TextWriter log, CancellationToken cancellationToken)

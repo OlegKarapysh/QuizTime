@@ -1,4 +1,3 @@
-using Npgsql;
 using QuizBank.Model;
 using QuizBank.Validation;
 
@@ -46,10 +45,6 @@ public static class CheckRunner
             return job.Kind == CheckKind.Sql
                 ? await SqlCheck.RunAsync(job, root, connectionString, cancellationToken)
                 : await DotnetCheck.RunAsync(job, root, connectionString, cancellationToken);
-        }
-        catch (NpgsqlException e) when (e is not PostgresException)
-        {
-            return CheckResult.Fail(job, new Diagnostic(job.Path, null, null, $"Lost the PostgreSQL connection: {e.Message}"));
         }
         finally
         {
