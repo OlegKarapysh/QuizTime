@@ -1,0 +1,72 @@
+# Concept registry for the .NET roadmaps. One entry per idea; every question
+# tests exactly one concept. A concept must be testable from at least three
+# different angles. Aim for 10-20 concepts per area.
+#
+# Seeded with the bootstrap targets from docs/PLAN.md (Oct 16-28 misses).
+
+# C# language features
+
+- id: operator-binding-static
+  idea: "== and other operators are chosen at compile time from the static types"
+  area: C# language features
+  nodes: [csharp]
+
+- id: record-with-shallow-copy
+  idea: "A with expression copies member values, so a reference-type member is shared between the copy and the original"
+  area: C# language features
+  nodes: [csharp]
+
+# ASP.NET Core / APIs
+
+- id: middleware-order-wraps-later
+  idea: "Middleware added earlier wraps everything added after it: it runs first on the request and last on the response"
+  area: ASP.NET Core / APIs
+  nodes: [middlewares]
+
+- id: routing-select-then-execute
+  idea: "Routing selects the endpoint early in the pipeline, but the endpoint only runs at the end, after the middleware between them"
+  area: ASP.NET Core / APIs
+  nodes: [routing, middlewares]
+
+# EF Core & PostgreSQL
+
+- id: ef-update-detached-marks-all-modified
+  idea: "DbContext.Update on a detached entity marks every property Modified, so the UPDATE writes all columns"
+  area: EF Core & PostgreSQL
+  nodes: [ef-change-tracking]
+
+- id: npgsql-timestamptz-utc-only
+  idea: "Npgsql writes timestamp with time zone only from UTC DateTime values; Local or Unspecified kinds throw instead of being converted"
+  area: EF Core & PostgreSQL
+  nodes: [postgresql, ef-core]
+
+# Async, DI & architecture
+
+- id: whenall-await-rethrows-one
+  idea: "Awaiting Task.WhenAll rethrows only one of the exceptions; the rest are reachable only through the returned task's Exception"
+  area: Async, DI & architecture
+  nodes: [async-await]
+
+# Security
+
+- id: fromsql-interpolation-parameterized
+  idea: "FromSql turns interpolation holes into parameters, while FromSqlRaw runs a pre-built string as-is, so interpolating into it is injectable"
+  area: Security
+  nodes: [web-vulnerabilities, ef-querying]
+
+- id: open-redirect-backslash
+  idea: "Browsers treat a backslash like a slash, so /\\host is an absolute redirect target; a leading-slash check does not make a URL local"
+  area: Security
+  nodes: [web-vulnerabilities]
+
+# Observability
+
+- id: start-activity-null-without-listener
+  idea: "ActivitySource.StartActivity returns null unless a listener samples the activity, so callers must handle null"
+  area: Observability
+  nodes: [distributed-tracing]
+
+- id: activity-current-async-local
+  idea: "Activity.Current is stored in an AsyncLocal, so it flows with the async execution context, not with a thread"
+  area: Observability
+  nodes: [distributed-tracing]

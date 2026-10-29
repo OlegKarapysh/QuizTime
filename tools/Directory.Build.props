@@ -1,0 +1,9 @@
+<Project>
+  <!-- Applies to the tool projects only. Checks under checks/ are file-based apps and must not inherit this. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+</Project>

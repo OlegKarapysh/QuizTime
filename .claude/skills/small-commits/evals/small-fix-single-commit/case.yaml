@@ -1,0 +1,7 @@
+schema_version: "1.1"
+name: small-fix-single-commit
+expected_outcome: |
+  The 3-file fix (source, test, changelog) is committed as one commit with a short subject
+  that names the fix, at most a short body, and no Co-Authored-By trailer.
+context:
+  scaffold_script: make-repo.sh
