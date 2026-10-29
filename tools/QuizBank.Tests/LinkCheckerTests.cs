@@ -7,7 +7,10 @@ namespace QuizBank.Tests;
 public sealed class LinkCheckerTests : IDisposable
 {
     private const string SampleUrl = "https://learn.microsoft.com/dotnet/api/system.string.intern?view=net-10.0";
-    private const string Page = """<html><body><h2 id="remarks">Remarks</h2><a name='legacy'></a><h3 id=bare>x</h3></body></html>""";
+    private const string Page = """
+        <html><head><meta name="description"></head><body><h2 id="remarks">Remarks</h2><a name='legacy'></a>
+        <h3 id=bare>x</h3><div data-id="overview" data-bi-name="examples"><input name="search"></div></body></html>
+        """;
 
     private readonly TestRepo _repo = new();
     private readonly List<TimeSpan> _delays = [];
@@ -60,6 +63,13 @@ public sealed class LinkCheckerTests : IDisposable
 
     [Fact]
     public Task Anchors_are_case_sensitive() => AssertAnchorAsync("Remarks", found: false);
+
+    [Theory]
+    [InlineData("description")]
+    [InlineData("overview")]
+    [InlineData("examples")]
+    [InlineData("search")]
+    public Task Other_names_and_data_ids_are_not_anchors(string anchor) => AssertAnchorAsync(anchor, found: false);
 
     [Fact]
     public async Task Transient_errors_are_retried_with_backoff()

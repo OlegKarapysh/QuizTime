@@ -133,8 +133,9 @@ public sealed partial class LinkChecker
         var anchor = Uri.UnescapeDataString(parts[1]);
         if (!IsCheckable(parts[0], anchor)) return null;
 
+        // A fragment targets an element's id or an <a name>; data-id, <meta name> and the like don't count.
         var escaped = Regex.Escape(anchor);
-        var pattern = $"""\b(?:id|name)\s*=\s*(?:"{escaped}"|'{escaped}'|{escaped}(?=[\s/>]))""";
+        var pattern = $"""(?i:\sid|<a\b[^>]*\sname)\s*=\s*(?:"{escaped}"|'{escaped}'|{escaped}(?=[\s/>]))""";
         return Regex.IsMatch(html, pattern)
             ? null
             : $"Anchor '#{anchor}' is not on '{parts[0]}'; link to a section id that exists on the page.";
