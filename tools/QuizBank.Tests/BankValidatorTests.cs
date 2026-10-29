@@ -157,7 +157,7 @@ public sealed class BankValidatorTests : IDisposable
     [Fact]
     public void Single_choice_needs_four_options()
     {
-        _repo.Replace(TestRepo.QuestionPath, """  - { id: d, text: "It throws" }""" + "\n", "");
+        _repo.Replace(TestRepo.QuestionPath, """  - { id: d, text: "Throws at run" }""" + "\n", "");
 
         AssertError(TestRepo.QuestionPath, "{ id: a,", "/options: Value should have at least 4 items");
     }
@@ -184,7 +184,7 @@ public sealed class BankValidatorTests : IDisposable
     {
         _repo.Replace(TestRepo.QuestionPath, "{ id: d,", "{ id: c,");
 
-        AssertError(TestRepo.QuestionPath, "It throws", "Duplicate option id 'c'.");
+        AssertError(TestRepo.QuestionPath, "Throws at run", "Duplicate option id 'c'.");
     }
 
     [Fact]
@@ -269,6 +269,185 @@ public sealed class BankValidatorTests : IDisposable
         _repo.Write("checks/ghost-001/check.cs", "return 0;\n");
 
         AssertError("checks/ghost-001", null, "No question has id 'ghost-001'.");
+    }
+
+    // Questions: lint
+
+    [Fact]
+    public void Option_more_than_1_3_times_the_shortest_is_reported()
+    {
+        _repo.Replace(TestRepo.QuestionPath, "Fails to build", "Fails to build at all");
+
+        AssertError(TestRepo.QuestionPath, "Fails to build at all",
+            "Option 'c' has 21 characters, more than 1.3 times the 11 of option 'a'; even out the option lengths so length gives nothing away.");
+    }
+
+    [Fact]
+    public void Options_exactly_1_3_times_the_shortest_are_allowed()
+    {
+        _repo.Replace(TestRepo.QuestionPath, "Prints True", "Prints Yes");
+        _repo.Replace(TestRepo.QuestionPath, "Fails to build", "Doesn't build");
+
+        Assert.Empty(_repo.Validate().Errors);
+    }
+
+    [Fact]
+    public void Multi_choice_option_lengths_are_checked()
+    {
+        _repo.Replace(TestRepo.QuestionPath, "type: single-choice", "type: multi-choice");
+        _repo.Replace(TestRepo.QuestionPath, "answer: a", "answer: [a, b]");
+        _repo.Replace(TestRepo.QuestionPath, "Fails to build", "Fails to build at all");
+
+        AssertError(TestRepo.QuestionPath, "Fails to build at all", "Option 'c' has 21 characters");
+    }
+
+    [Fact]
+    public void Ordering_option_lengths_are_not_checked()
+    {
+        _repo.Replace(TestRepo.QuestionPath, "type: single-choice", "type: ordering");
+        _repo.Replace(TestRepo.QuestionPath, "answer: a", "answer: [a, b, c, d]");
+        _repo.Replace(TestRepo.QuestionPath, "Fails to build", "Fails to build at all");
+
+        Assert.Empty(_repo.Validate().Errors);
+    }
+
+    [Fact]
+    public void Correct_option_longest_in_more_than_35_percent_is_reported()
+    {
+        // The sample's answer is the shortest option; option c is the longest.
+        AddSampleCopies(19, answerLongestInFirst: 8);
+
+        AssertError("questions", null,
+            "The correct option is the longest in 8 of 20 single-choice questions (40%), more than the 35% allowed; " +
+            "shorten the correct option or lengthen a wrong one in some of: csharp-002, csharp-003, csharp-004, " +
+            "csharp-005, csharp-006, csharp-007, csharp-008, csharp-009.");
+    }
+
+    [Fact]
+    public void Correct_option_longest_in_35_percent_is_allowed()
+    {
+        AddSampleCopies(19, answerLongestInFirst: 7);
+
+        Assert.Empty(_repo.Validate().Errors);
+    }
+
+    [Fact]
+    public void Longest_correct_share_needs_20_questions()
+    {
+        AddSampleCopies(18, answerLongestInFirst: 18);
+
+        Assert.Empty(_repo.Validate().Errors);
+    }
+
+    [Fact]
+    public void Retired_questions_do_not_count_toward_the_longest_correct_share()
+    {
+        // 8 of 21 is too many; without the retired csharp-002 it's 7 of 20.
+        AddSampleCopies(20, answerLongestInFirst: 8);
+        _repo.Replace("questions/sample/csharp/csharp-002.yaml", "status: draft", "status: retired");
+
+        Assert.Empty(_repo.Validate().Errors);
+    }
+
+    [Fact]
+    public void A_tie_for_longest_does_not_count_as_longest()
+    {
+        AddSampleCopies(19, answerLongestInFirst: 8);
+        for (var i = 2; i <= 9; i++)
+            _repo.Replace($"questions/sample/csharp/csharp-{i:000}.yaml", "Throws at run", "Throws at once");
+
+        Assert.Empty(_repo.Validate().Errors);
+    }
+
+    [Theory]
+    [InlineData("https://learn.microsoft.com/en-us/aspnet/core/fundamentals/middleware/",
+        "Pin ASP.NET Core docs to version 10: add ?view=aspnetcore-10.0 to the URL.")]
+    [InlineData("https://learn.microsoft.com/aspnet/core/fundamentals/middleware/?view=aspnetcore-9.0",
+        "Pin ASP.NET Core docs to version 10: add ?view=aspnetcore-10.0 to the URL.")]
+    [InlineData("https://learn.microsoft.com/en-us/dotnet/api/system.string.intern",
+        "Pin API reference links to a .NET 10 view: add ?view= with one of net-10.0, net-10.0-pp, aspnetcore-10.0, efcore-10.0.")]
+    [InlineData("https://learn.microsoft.com/dotnet/api/system.string.intern?view=net-9.0",
+        "Pin API reference links to a .NET 10 view: add ?view= with one of net-10.0, net-10.0-pp, aspnetcore-10.0, efcore-10.0.")]
+    [InlineData("https://www.postgresql.org/docs/current/functions-subquery.html",
+        "Link the PostgreSQL 16 docs: use /docs/16/ instead of /docs/current/.")]
+    public void Docs_links_must_pin_the_target_versions(string url, string message)
+    {
+        _repo.Replace(TestRepo.QuestionPath, "https://learn.microsoft.com/dotnet/api/system.string.intern?view=net-10.0", url);
+
+        AssertError(TestRepo.QuestionPath, "url:", message);
+    }
+
+    [Theory]
+    [InlineData("https://learn.microsoft.com/en-us/aspnet/core/fundamentals/middleware/?view=aspnetcore-10.0#order")]
+    [InlineData("https://learn.microsoft.com/en-us/dotnet/api/microsoft.entityframeworkcore.dbcontext.update?view=efcore-10.0")]
+    [InlineData("https://learn.microsoft.com/en-us/ef/core/change-tracking/")]
+    [InlineData("https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/equality-operators")]
+    [InlineData("https://www.postgresql.org/docs/16/functions-subquery.html#FUNCTIONS-SUBQUERY-NOTIN")]
+    public void Pinned_and_unversioned_docs_links_are_allowed(string url)
+    {
+        _repo.Replace(TestRepo.QuestionPath, "https://learn.microsoft.com/dotnet/api/system.string.intern?view=net-10.0", url);
+
+        Assert.Empty(_repo.Validate().Errors);
+    }
+
+    // Denylist
+
+    [Fact]
+    public void Denylisted_name_is_reported_without_repeating_it()
+    {
+        _repo.Write("private/denylist.txt", "# Clients\nContoso\n");
+        _repo.Replace(TestRepo.QuestionPath, "stem: What does this print?", "stem: What does the Contoso app print?");
+
+        var report = _repo.Validate();
+
+        var error = Assert.Single(report.Errors);
+        Assert.Equal(
+            $"{TestRepo.QuestionPath}:{_repo.LineOf(TestRepo.QuestionPath, "stem:")}:21: Matches the name on line 2 of the denylist; " +
+            "use a neutral name such as Shop, Orders or Billing.",
+            error.ToString());
+        Assert.True(report.DenylistChecked);
+    }
+
+    [Theory]
+    [InlineData("the contoso app", true)]
+    [InlineData("CONTOSO's orders", true)]
+    [InlineData("Contoso.Orders", true)]
+    [InlineData("ContosoShop", false)]
+    [InlineData("MyContoso", false)]
+    public void Denylist_matches_whole_words_in_any_case(string text, bool matches)
+    {
+        var denylist = Denylist.Parse(["Contoso"]);
+
+        Assert.Equal(matches, denylist.Matches(text).Any());
+    }
+
+    [Fact]
+    public void Denylist_covers_checks()
+    {
+        _repo.Write("private/denylist.txt", "Contoso\n");
+        _repo.Write(TestRepo.CheckPath, "// Contoso\nreturn 0;\n");
+
+        AssertError(TestRepo.CheckPath, "// Contoso", "Matches the name on line 1 of the denylist");
+    }
+
+    [Fact]
+    public void Denylist_can_live_outside_the_root()
+    {
+        // The pre-commit hook validates a copy of the staged files, which has no private/ folder.
+        using var other = new TestRepo();
+        other.Write("private/denylist.txt", "print\n");
+
+        var report = BankValidator.Validate(_repo.Root, Path.Combine(other.Root, "private", "denylist.txt"));
+
+        Assert.Contains(report.Errors, e => e.File == TestRepo.QuestionPath && e.Message.StartsWith("Matches the name on line 1"));
+    }
+
+    [Fact]
+    public void Missing_denylist_skips_the_name_check()
+    {
+        var report = _repo.Validate();
+
+        Assert.False(report.DenylistChecked);
     }
 
     // Concepts
@@ -371,6 +550,23 @@ public sealed class BankValidatorTests : IDisposable
         _repo.Replace(TestRepo.QuestionPath, "level: intermediate", "level: intermediate\nlevel: advanced");
 
         AssertError(TestRepo.QuestionPath, "level: advanced", "Duplicate key level");
+    }
+
+    /// <summary>
+    /// Adds copies of the sample question as csharp-002 onward, each with its check. The first
+    /// <paramref name="answerLongestInFirst"/> copies mark the longest option (c) as the answer.
+    /// </summary>
+    private void AddSampleCopies(int count, int answerLongestInFirst)
+    {
+        var sample = File.ReadAllText(Path.Combine(_repo.Root, TestRepo.QuestionPath));
+        for (var i = 0; i < count; i++)
+        {
+            var id = $"csharp-{i + 2:000}";
+            var question = sample.Replace("csharp-001", id);
+            if (i < answerLongestInFirst) question = question.Replace("answer: a", "answer: c");
+            _repo.Write($"questions/sample/csharp/{id}.yaml", question);
+            _repo.Write($"checks/{id}/check.cs", "return 0;\n");
+        }
     }
 
     /// <summary>

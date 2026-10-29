@@ -5,18 +5,28 @@ using QuizBank.Yaml;
 
 namespace QuizBank.Validation;
 
-public sealed record ValidationReport(IReadOnlyList<Diagnostic> Errors, int Roadmaps, int Nodes, int Concepts, int Questions)
+/// <param name="QuestionFiles">The question files that passed their schema, for the tools that run on top of validation.</param>
+/// <param name="DenylistChecked">False when there was no denylist to check names against (CI has no private/).</param>
+public sealed record ValidationReport(
+    IReadOnlyList<Diagnostic> Errors,
+    int Roadmaps,
+    int Nodes,
+    int Concepts,
+    int Questions,
+    IReadOnlyList<BankFile<Question>> QuestionFiles,
+    bool DenylistChecked)
 {
     public bool IsValid => Errors.Count == 0;
 }
 
 /// <summary>
-/// Gate 1 structure checks: every roadmap, concept and question file against its schema, then against each other
-/// (unique ids, file paths, nodes, concepts, answer ids, check files, blind-solve records).
+/// Gate 1: every roadmap, concept and question file against its schema, then against each other
+/// (unique ids, file paths, nodes, concepts, answer ids, check files, blind-solve records), then the lint rules.
 /// </summary>
-public sealed class BankValidator
+public sealed partial class BankValidator
 {
     private readonly string _root;
+    private readonly Denylist? _denylist;
     private readonly List<Diagnostic> _errors = [];
 
     // Whether every roadmap and concept file loaded. Reference checks against an incomplete set
@@ -24,9 +34,19 @@ public sealed class BankValidator
     private bool _roadmapsComplete;
     private bool _conceptsComplete;
 
-    private BankValidator(string root) => _root = root;
+    private BankValidator(string root, Denylist? denylist)
+    {
+        _root = root;
+        _denylist = denylist;
+    }
 
-    public static ValidationReport Validate(string root) => new BankValidator(Path.GetFullPath(root)).Run();
+    /// <param name="denylistPath">Defaults to private/denylist.txt under the root. A missing file skips the name check.</param>
+    public static ValidationReport Validate(string root, string? denylistPath = null)
+    {
+        root = Path.GetFullPath(root);
+        var denylist = Denylist.Load(denylistPath ?? Path.Combine(root, "private", "denylist.txt"));
+        return new BankValidator(root, denylist).Run();
+    }
 
     private ValidationReport Run()
     {
@@ -39,6 +59,8 @@ public sealed class BankValidator
         var concepts = CheckConcepts(conceptFiles, nodesByRoadmap);
         CheckQuestions(questions, nodesByRoadmap, concepts);
         CheckForOrphanChecks();
+        CheckLongestCorrectShare(questions);
+        if (_denylist is not null) CheckDenylist(_denylist);
 
         // Files in the order their first error was found (roadmaps, concepts, questions, checks), so root causes come first.
         var fileOrder = _errors.Select(e => e.File).Distinct().Index().ToDictionary(x => x.Item, x => x.Index);
@@ -48,18 +70,16 @@ public sealed class BankValidator
             .ThenBy(e => e.Column ?? 0)
             .ToList();
         return new ValidationReport(errors, roadmaps.Count, nodesByRoadmap.Values.Sum(n => n.Count), concepts.Count,
-            QuestionFiles().Count());
+            QuestionFiles().Count(), questions, _denylist is not null);
     }
-
-    private sealed record Loaded<T>(string Path, YamlJsonDocument Document, T Value);
 
     private sealed record ConceptEntry(Concept Concept, string File);
 
     /// <summary>Parses and schema-checks every YAML file under a folder. Files with errors are reported and skipped.</summary>
-    private List<Loaded<T>> LoadAll<T>(string folder, JsonSchema schema, SearchOption search, out bool complete)
+    private List<BankFile<T>> LoadAll<T>(string folder, JsonSchema schema, SearchOption search, out bool complete)
     {
         var errorsBefore = _errors.Count;
-        var loaded = new List<Loaded<T>>();
+        var loaded = new List<BankFile<T>>();
         complete = true;
 
         var directory = Path.Combine(_root, folder);
@@ -94,14 +114,14 @@ public sealed class BankValidator
             }
 
             if (schemaErrors.Count == 0)
-                loaded.Add(new Loaded<T>(path, document, document.Root.Deserialize<T>(BankJson.Options)!));
+                loaded.Add(new BankFile<T>(path, document, document.Root.Deserialize<T>(BankJson.Options)!));
         }
 
         complete = _errors.Count == errorsBefore;
         return loaded;
     }
 
-    private Dictionary<string, HashSet<string>> CheckRoadmaps(List<Loaded<Roadmap>> roadmaps)
+    private Dictionary<string, HashSet<string>> CheckRoadmaps(List<BankFile<Roadmap>> roadmaps)
     {
         var nodesByRoadmap = new Dictionary<string, HashSet<string>>();
         foreach (var item in roadmaps)
@@ -150,7 +170,7 @@ public sealed class BankValidator
     }
 
     private Dictionary<string, ConceptEntry> CheckConcepts(
-        List<Loaded<List<Concept>>> conceptFiles, Dictionary<string, HashSet<string>> nodesByRoadmap)
+        List<BankFile<List<Concept>>> conceptFiles, Dictionary<string, HashSet<string>> nodesByRoadmap)
     {
         var allNodes = nodesByRoadmap.Values.SelectMany(nodes => nodes).ToHashSet();
         var concepts = new Dictionary<string, ConceptEntry>();
@@ -178,7 +198,7 @@ public sealed class BankValidator
     }
 
     private void CheckQuestions(
-        List<Loaded<Question>> questions,
+        List<BankFile<Question>> questions,
         Dictionary<string, HashSet<string>> nodesByRoadmap,
         Dictionary<string, ConceptEntry> concepts)
     {
@@ -221,10 +241,11 @@ public sealed class BankValidator
 
             var optionIds = CheckOptionsAndAnswer(item);
             CheckVerification(item, optionIds);
+            LintQuestion(item);
         }
     }
 
-    private HashSet<string> CheckOptionsAndAnswer(Loaded<Question> item)
+    private HashSet<string> CheckOptionsAndAnswer(BankFile<Question> item)
     {
         var question = item.Value;
         var optionIds = new HashSet<string>();
@@ -247,7 +268,7 @@ public sealed class BankValidator
         return optionIds;
     }
 
-    private void CheckVerification(Loaded<Question> item, HashSet<string> optionIds)
+    private void CheckVerification(BankFile<Question> item, HashSet<string> optionIds)
     {
         var question = item.Value;
         if (question.Verification is not { } verification) return;
@@ -311,7 +332,7 @@ public sealed class BankValidator
 
     private void Error(string file, string message) => _errors.Add(new Diagnostic(file, null, null, message));
 
-    private void Error<T>(Loaded<T> item, string pointer, string message)
+    private void Error<T>(BankFile<T> item, string pointer, string message)
     {
         var position = item.Document.PositionOf(pointer);
         _errors.Add(new Diagnostic(item.Path, position.Line, position.Column, message));

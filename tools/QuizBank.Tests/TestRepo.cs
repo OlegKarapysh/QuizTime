@@ -1,3 +1,4 @@
+using QuizBank.Model;
 using QuizBank.Validation;
 
 namespace QuizBank.Tests;
@@ -19,6 +20,7 @@ internal sealed class TestRepo : IDisposable
     public const string ConceptsPath = "concepts/sample.yaml";
     public const string QuestionPath = "questions/sample/csharp/csharp-001.yaml";
     public const string CheckPath = "checks/csharp-001/check.cs";
+    public const string SqlCheckPath = "checks/csharp-001/check.sql";
 
     public TestRepo()
     {
@@ -60,7 +62,24 @@ internal sealed class TestRepo : IDisposable
     public int LineOf(string path, string text) =>
         File.ReadAllLines(Full(path)).Index().First(line => line.Item.Contains(text)).Index + 1;
 
+    /// <summary>Switches the sample question to method: sql with this script as its check.</summary>
+    public void UseSqlCheck(string script)
+    {
+        Replace(QuestionPath, "method: run", "method: sql");
+        Replace(QuestionPath, $"check: {CheckPath}", $"check: {SqlCheckPath}");
+        Delete(CheckPath);
+        Write(SqlCheckPath, script);
+    }
+
     public ValidationReport Validate() => BankValidator.Validate(Root);
+
+    /// <summary>The bank's questions, which must be valid.</summary>
+    public IReadOnlyList<BankFile<Question>> Questions()
+    {
+        var report = Validate();
+        Assert.Empty(report.Errors);
+        return report.QuestionFiles;
+    }
 
     public void Dispose() => Directory.Delete(Root, recursive: true);
 
@@ -105,10 +124,10 @@ internal sealed class TestRepo : IDisposable
             object a = "x";
             Console.WriteLine(a == "x");
         options:
-          - { id: a, text: "True" }
-          - { id: b, text: "False" }
-          - { id: c, text: "It does not compile" }
-          - { id: d, text: "It throws" }
+          - { id: a, text: "Prints True" }
+          - { id: b, text: "Prints False" }
+          - { id: c, text: "Fails to build" }
+          - { id: d, text: "Throws at run" }
         answer: a
         explanation:
           takeaway: Literals are interned.
@@ -116,7 +135,7 @@ internal sealed class TestRepo : IDisposable
         sources:
           - kind: proof
             title: String interning
-            url: https://learn.microsoft.com/dotnet/api/system.string.intern
+            url: https://learn.microsoft.com/dotnet/api/system.string.intern?view=net-10.0
             look_for: The runtime keeps one instance per literal
             checked: 2026-10-29
         verification:
