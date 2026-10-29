@@ -1,0 +1,8 @@
+schema_version: "1.1"
+name: splits-large-mixed-change
+expected_outcome: |
+  The 28 uncommitted files are committed as several small commits of at most 15 files each,
+  grouped by the change they belong to (shared helpers, orders, billing, docs, config), with
+  short subjects, no long bodies, no Co-Authored-By trailer, and a clean working tree after.
+context:
+  scaffold_script: make-repo.sh

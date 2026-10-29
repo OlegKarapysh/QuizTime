@@ -1,0 +1,8 @@
+schema_version: "1.1"
+name: large-rename-split
+expected_outcome: |
+  The rename touches 20 files, so it is committed as at least 2 commits of at most 15 files
+  each, split along a meaningful line (such as directory), with short subjects that say which
+  part of the rename each covers, and no Co-Authored-By trailer.
+context:
+  scaffold_script: make-repo.sh
