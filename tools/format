@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Applies the formatting tools/verify checks: the tool projects, then the checks (file-based apps).
+set -euo pipefail
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$root"
+
+dotnet format QuizTime.slnx
+dotnet format whitespace checks --folder

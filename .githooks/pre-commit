@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Enable once per clone: git config core.hooksPath .githooks
+# Gate 1 runs here because CI can't see private/: the name denylist (milestone 2) only works locally.
+set -euo pipefail
+
+"$(git rev-parse --show-toplevel)/tools/validate"
