@@ -8,8 +8,8 @@ public sealed record ProcessResult(int ExitCode, string Stdout, string Stderr, b
 public static class ProcessRunner
 {
     /// <summary>
-    /// Runs a program to completion and captures its output. On timeout the whole process tree is killed.
-    /// Throws <see cref="EnvironmentException"/> when the program isn't installed.
+    /// Runs a program to completion and captures its output. On timeout the whole process tree is killed and the
+    /// output is dropped. Throws <see cref="EnvironmentException"/> when the program isn't installed.
     /// </summary>
     public static async Task<ProcessResult> RunAsync(
         string fileName,
@@ -46,19 +46,20 @@ public static class ProcessRunner
 
         using var timeoutSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutSource.CancelAfter(timeout);
-        var timedOut = false;
         try
         {
             await process.WaitForExitAsync(timeoutSource.Token);
+            // A child that inherited the pipes can keep them open after the program exits, so the timeout covers them too.
+            await Task.WhenAll(stdout, stderr).WaitAsync(timeoutSource.Token);
         }
         catch (OperationCanceledException)
         {
             process.Kill(entireProcessTree: true);
             await process.WaitForExitAsync(CancellationToken.None);
             cancellationToken.ThrowIfCancellationRequested();
-            timedOut = true;
+            return new ProcessResult(process.ExitCode, "", "", TimedOut: true);
         }
 
-        return new ProcessResult(process.ExitCode, await stdout, await stderr, timedOut);
+        return new ProcessResult(process.ExitCode, await stdout, await stderr, TimedOut: false);
     }
 }
