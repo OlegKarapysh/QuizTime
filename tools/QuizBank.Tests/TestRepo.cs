@@ -12,7 +12,8 @@ internal static class RealRepo
 
 /// <summary>
 /// A throwaway bank in a temp folder: the real schemas plus a small valid roadmap, concept file,
-/// question and check. Tests break one thing and assert the error it produces.
+/// question and check. Tests break one thing and assert the error it produces. The question has no
+/// code, so tests can write any check without copying a snippet into it.
 /// </summary>
 internal sealed class TestRepo : IDisposable
 {
@@ -118,11 +119,6 @@ internal sealed class TestRepo : IDisposable
         type: single-choice
         targets: { dotnet: "10.0" }
         stem: What does this print?
-        code:
-          lang: csharp
-          text: |
-            object a = "x";
-            Console.WriteLine(a == "x");
         options:
           - { id: a, text: "Prints True" }
           - { id: b, text: "Prints False" }

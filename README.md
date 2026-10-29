@@ -38,7 +38,8 @@ It checks every roadmap, concept and question against its schema, then against e
 unique ids, file paths that match the roadmap, node and id, nodes and concepts that exist,
 answers and blind-solve picks that are real option ids, and check files where the
 verification method needs one. Then the lint rules: option lengths, pinned docs versions,
-and the names in `private/denylist.txt` when that file exists. Errors print as
+check snippets that match the question's code, and the names in `private/denylist.txt`
+when that file exists. Errors print as
 `file:line:column: message`, and the exit code is 1 if there are any.
 
 ## Run the checks

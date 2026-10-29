@@ -15,7 +15,7 @@ A bug in the code weakens the content without anyone noticing: a validator that 
 | Build with warnings as errors, tool tests | `tools/verify` | | ✓ | ✓ | | now |
 | Gate 1: schemas and cross-references | `tools/validate` | ✓ | ✓ | ✓ | | now |
 | actionlint | `tools/verify` if installed | | ✓ | ✓ | | now |
-| Gate 1: lint rules (option lengths, pinned docs, denylist) | `tools/validate` | ✓ | ✓, without denylist | ✓, without denylist | | now |
+| Gate 1: lint rules (option lengths, pinned docs, check snippets, denylist) | `tools/validate` | ✓ | ✓, without denylist | ✓, without denylist | | now |
 | Gate 2: run checks | `tools/run-checks` | | changed questions | all | all | now |
 | Link check | `tools/check-links` | | changed questions | all | all | now |
 | Gates 3–5: blind solve, audit, fix loop | write-quiz-batch skill | | | | | milestone 3 |

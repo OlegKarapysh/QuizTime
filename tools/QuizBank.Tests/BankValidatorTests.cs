@@ -393,6 +393,100 @@ public sealed class BankValidatorTests : IDisposable
         Assert.Empty(_repo.Validate().Errors);
     }
 
+    // Questions: snippets
+
+    private const string CSharpCode = """
+        code:
+          lang: csharp
+          text: |
+            var total = new Order(10m).Total;
+            Console.WriteLine(total);
+
+            record Order(decimal Total);
+        options:
+        """;
+
+    private const string CSharpCheck = """
+        // Check for csharp-001 (marked answer: a).
+        // --- snippet statements ---
+        var total = new Order(10m).Total;
+        Console.WriteLine(total);
+        // --- end snippet statements ---
+
+        Console.WriteLine("PASS csharp-001: printed 10");
+        return 0;
+
+        // --- snippet types ---
+        record Order(decimal Total);
+        """;
+
+    [Fact]
+    public void Snippet_copied_unchanged_is_allowed()
+    {
+        _repo.Replace(TestRepo.QuestionPath, "options:", CSharpCode);
+        _repo.Write(TestRepo.CheckPath, CSharpCheck);
+
+        Assert.Empty(_repo.Validate().Errors);
+    }
+
+    [Fact]
+    public void Snippet_that_differs_from_the_question_is_reported()
+    {
+        _repo.Replace(TestRepo.QuestionPath, "options:", CSharpCode);
+        _repo.Write(TestRepo.CheckPath, CSharpCheck.Replace("Console.WriteLine(total);", "Console.WriteLine(total + 1);"));
+
+        AssertError(TestRepo.CheckPath, "total + 1",
+            "The snippet differs from the question's code: the question has 'Console.WriteLine(total);' here, but the check has " +
+            "'Console.WriteLine(total + 1);'; copy the code unchanged.");
+    }
+
+    [Fact]
+    public void Snippet_without_the_question_types_is_reported()
+    {
+        _repo.Replace(TestRepo.QuestionPath, "options:", CSharpCode);
+        _repo.Write(TestRepo.CheckPath, CSharpCheck.Replace("// --- snippet types ---\n", ""));
+
+        AssertError(TestRepo.CheckPath, "end snippet statements",
+            "the snippet ends before the question's 'record Order(decimal Total);'");
+    }
+
+    [Fact]
+    public void Check_without_snippet_markers_is_reported()
+    {
+        _repo.Replace(TestRepo.QuestionPath, "options:", CSharpCode);
+
+        AssertError(TestRepo.CheckPath, null,
+            "No snippet markers; copy the question's code between '// --- snippet statements ---' and " +
+            "'// --- end snippet statements ---', with its types after '// --- snippet types ---'.");
+    }
+
+    [Fact]
+    public void Unclosed_snippet_is_reported()
+    {
+        _repo.Replace(TestRepo.QuestionPath, "options:", CSharpCode);
+        _repo.Write(TestRepo.CheckPath, CSharpCheck.Replace("// --- end snippet statements ---\n", ""));
+
+        AssertError(TestRepo.CheckPath, "// --- snippet statements ---",
+            "'// --- snippet statements ---' has no '// --- end snippet statements ---' line after it.");
+    }
+
+    [Fact]
+    public void Sql_snippet_must_match_the_question()
+    {
+        _repo.Replace(TestRepo.QuestionPath, "options:", "code:\n  lang: sql\n  text: SELECT count(*) AS n FROM orders;\noptions:");
+        _repo.UseSqlCheck("""
+            CREATE TABLE orders (id int);
+            -- --- snippet ---
+            SELECT count(id) AS n FROM orders;
+            -- --- end snippet ---
+            -- --- expected ---
+            -- --- end expected ---
+            """);
+
+        AssertError(TestRepo.SqlCheckPath, "SELECT count(id)",
+            "the question has 'SELECT count(*) AS n FROM orders;' here, but the check has 'SELECT count(id) AS n FROM orders;'");
+    }
+
     // Denylist
 
     [Fact]

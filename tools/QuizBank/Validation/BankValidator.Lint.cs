@@ -5,9 +5,18 @@ using QuizBank.Yaml;
 namespace QuizBank.Validation;
 
 // Gate 1 lint: the writing rules from the PLAN.md section "Question writing rules" that a tool can decide,
-// plus the name denylist.
+// the name denylist, and checks that copy the question's code unchanged.
 public sealed partial class BankValidator
 {
+    /// <summary>Where a check keeps its copy of the question's code: between Start and End, or from Start to the end of the file.</summary>
+    private sealed record SnippetBlock(string Start, string? End);
+
+    // C# statements, then the types that top-level programs must declare after them (docs/CODE_STYLE.md).
+    private static readonly SnippetBlock[] CSharpSnippet =
+        [new("// --- snippet statements ---", "// --- end snippet statements ---"), new("// --- snippet types ---", null)];
+
+    private static readonly SnippetBlock[] SqlSnippet = [new("-- --- snippet ---", "-- --- end snippet ---")];
+
     // Within a question the longest option is at most 1.3 times the shortest, compared in tenths so it stays integer.
     private const int MaxOptionLengthRatioInTenths = 13;
 
@@ -21,6 +30,7 @@ public sealed partial class BankValidator
     {
         CheckOptionLengths(item);
         CheckPinnedDocs(item);
+        CheckSnippet(item);
     }
 
     private void CheckOptionLengths(BankFile<Question> item)
@@ -65,6 +75,79 @@ public sealed partial class BankValidator
             _ => null,
         };
     }
+
+    /// <summary>
+    /// A check copies its question's code unchanged between snippet markers (docs/CODE_STYLE.md), so it runs what the
+    /// question shows. Only C# and SQL code is compared, with trailing spaces and blank lines at either end ignored.
+    /// </summary>
+    private void CheckSnippet(BankFile<Question> item)
+    {
+        if (item.Value is not { Code: { } code, Verification.Check: { } check }) return;
+
+        var markers = (code.Lang, Path.GetExtension(check)) switch
+        {
+            ("csharp", ".cs") => CSharpSnippet,
+            ("sql", ".sql") => SqlSnippet,
+            _ => null,
+        };
+        var path = Path.Combine(_root, check);
+        if (markers is null || !File.Exists(path)) return;
+
+        var lines = File.ReadAllLines(path);
+        var snippet = new List<(string Text, int Line)>();
+        var found = false;
+        var endLine = lines.Length;
+        foreach (var block in markers)
+        {
+            var start = Array.FindIndex(lines, line => line.Trim() == block.Start);
+            if (start < 0) continue;
+
+            var end = block.End is null ? lines.Length : Array.FindIndex(lines, start + 1, line => line.Trim() == block.End);
+            if (end < 0)
+            {
+                _errors.Add(new Diagnostic(check, start + 1, 1, $"'{block.Start}' has no '{block.End}' line after it."));
+                return;
+            }
+
+            var copied = TrimBlankEnds(lines[(start + 1)..end].Select((text, i) => (Text: text.TrimEnd(), Line: start + 2 + i)), line => line.Text)
+                .ToList();
+            // One blank line separates the statements from the types, as in the question.
+            if (snippet.Count > 0 && copied.Count > 0) snippet.Add(("", start + 1));
+            snippet.AddRange(copied);
+            found = true;
+            endLine = block.End is null ? lines.Length : end + 1;
+        }
+
+        if (!found)
+        {
+            var where = markers == CSharpSnippet
+                ? $"between '{CSharpSnippet[0].Start}' and '{CSharpSnippet[0].End}', with its types after '{CSharpSnippet[1].Start}'"
+                : $"between '{SqlSnippet[0].Start}' and '{SqlSnippet[0].End}'";
+            Error(check, $"No snippet markers; copy the question's code {where}.");
+            return;
+        }
+
+        var expected = TrimBlankEnds(code.Text.Split('\n').Select(line => line.TrimEnd()), line => line).ToList();
+        for (var i = 0; i < Math.Max(expected.Count, snippet.Count); i++)
+        {
+            if (i < expected.Count && i < snippet.Count && expected[i] == snippet[i].Text) continue;
+
+            // Both lists end with a non-blank line, so the rest of the longer one has one to quote.
+            var missing = expected.Skip(i).FirstOrDefault(text => text.Length > 0);
+            var extra = snippet.Skip(i).FirstOrDefault(copied => copied.Text.Length > 0);
+            var (line, message) = (i < expected.Count, i < snippet.Count) switch
+            {
+                (true, true) => (snippet[i].Line, $"the question has '{expected[i]}' here, but the check has '{snippet[i].Text}'"),
+                (true, false) => (endLine, $"the snippet ends before the question's '{missing}'"),
+                _ => (extra.Line, $"the check has '{extra.Text}' after the question's code ends"),
+            };
+            _errors.Add(new Diagnostic(check, line, 1, $"The snippet differs from the question's code: {message}; copy the code unchanged."));
+            return;
+        }
+    }
+
+    private static IEnumerable<T> TrimBlankEnds<T>(IEnumerable<T> lines, Func<T, string> text) =>
+        lines.SkipWhile(line => text(line).Length == 0).Reverse().SkipWhile(line => text(line).Length == 0).Reverse();
 
     /// <summary>Across the bank, the correct option may be the longest one in at most 35% of single-choice questions.</summary>
     private void CheckLongestCorrectShare(IEnumerable<BankFile<Question>> questions)

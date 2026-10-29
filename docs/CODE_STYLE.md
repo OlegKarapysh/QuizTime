@@ -46,7 +46,7 @@ A check proves a question's marked answer by running the question's own code on 
 
 - A file-based app with top-level statements and no project file. Directives come first: `#:sdk Microsoft.NET.Sdk.Web` when ASP.NET Core is needed, `#:package Name@1.2.3` with an exact version.
 - The header comment names the question and the marked answer, and says how the check decides: `// Check for csharp-001 (marked answer: b).`
-- Copy the question's code unchanged between markers. Statements go between `// --- snippet statements ---` and `// --- end snippet statements ---`; types go after `// --- snippet types ---` at the end of the file. Harness code stays outside the markers.
+- Copy the question's code unchanged between markers. Statements go between `// --- snippet statements ---` and `// --- end snippet statements ---`; types go after `// --- snippet types ---` at the end of the file. Harness code stays outside the markers. `tools/validate` compares the snippet with the question's code, ignoring trailing spaces and blank lines at either end.
 - Assert the exact claim: printed output, exception type, HTTP status, or the SQL sent (`ToQueryString()` or EF logging). For "what does this print" questions, capture the output and check that exactly one option matches it and that it is the marked one.
 - On success, print `PASS <id>: <what was observed>` to stdout and return 0. On failure, print `FAIL <id>: <what was observed>; <what was expected>` to stderr and return 1.
 - Deterministic: no wall-clock time, random values, network calls, or results that depend on thread scheduling, unless the question is about that and the check controls it.
@@ -75,7 +75,7 @@ SELECT count(total) AS priced, count(*) AS all_orders FROM orders;
 
 - PostgreSQL 16. Uppercase keywords, lowercase types and functions, snake_case identifiers.
 - The header comment names the question and the marked answer, and says which output only the marked option states.
-- Copy the question's SQL unchanged between `-- --- snippet ---` and `-- --- end snippet ---`. Setup the question doesn't show goes before the snippet.
+- Copy the question's SQL unchanged between `-- --- snippet ---` and `-- --- end snippet ---`; `tools/validate` compares them. Setup the question doesn't show goes before the snippet.
 - run-checks runs the script in a fresh database it creates and drops, so the script needs no cleanup. Statements run one at a time with autocommit, as in psql. `BEGIN`/`COMMIT` work; psql meta-commands (`\set`) and `BEGIN ATOMIC` function bodies don't.
 - The expected block comes last. Each line starts with `--`. It holds the output of every statement that returns rows: a header of column names, then one line per row, values separated by `|`, in PostgreSQL's text format (`t`, `10.00`, `2026-11-02 08:00:00+00`) and `NULL` for null. Statements without rows (DDL, plain `INSERT`) print nothing. A blank `--` line separates consecutive results.
 - A failing statement prints `ERROR <SQLSTATE>: <message>` and stops the script, so an answer that is an error is asserted the same way.
@@ -94,7 +94,7 @@ The schemas and `tools/validate` enforce structure. Beyond that, follow the exis
 - Short records use inline maps with spaces inside the braces: `- { id: a, text: "..." }`.
 - Code in a question is C# in the style above, about 20 lines at most.
 
-What makes a good question (no trivia, option lengths, explanations, sources) is in the PLAN.md section "Question writing rules". It isn't repeated here. `tools/validate` enforces the parts a tool can decide: the longest option is at most 1.3 times the shortest (not for ordering questions); across the bank the correct option is the longest in at most 35% of single-choice questions, once there are 20; Learn links pin `?view=aspnetcore-10.0` (ASP.NET Core) or a 10.0 view (API reference), and PostgreSQL links use `/docs/16/`; and no name from `private/denylist.txt` appears in roadmaps, concepts, questions or checks, as a word of its own or as part of a camelCase identifier (`AcmeOrders`, `myAcme`).
+What makes a good question (no trivia, option lengths, explanations, sources) is in the PLAN.md section "Question writing rules". It isn't repeated here. `tools/validate` enforces the parts a tool can decide: the longest option is at most 1.3 times the shortest (not for ordering questions); across the bank the correct option is the longest in at most 35% of single-choice questions, once there are 20; Learn links pin `?view=aspnetcore-10.0` (ASP.NET Core) or a 10.0 view (API reference), and PostgreSQL links use `/docs/16/`; a check's snippet matches the question's code; and no name from `private/denylist.txt` appears in roadmaps, concepts, questions or checks, as a word of its own or as part of a camelCase identifier (`AcmeOrders`, `myAcme`).
 
 ## Scripts (`tools/<name>`, `.githooks/`)
 
