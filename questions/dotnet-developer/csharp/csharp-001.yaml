@@ -1,0 +1,78 @@
+id: csharp-001
+roadmap: dotnet-developer
+node: csharp
+concept: operator-binding-static
+area: C# language features
+level: intermediate
+type: single-choice
+targets: { dotnet: "10.0" }
+
+stem: |
+  A Shop service passes prices around as `IPrice`. What does this complete
+  program print? Each option lists the three printed lines in order.
+
+code:
+  lang: csharp
+  text: |
+    IPrice a = new Price(10m, "EUR");
+    IPrice b = new Price(10m, "EUR");
+    Price c = new Price(10m, "EUR");
+
+    Console.WriteLine(a == b);
+    Console.WriteLine(a.Equals(b));
+    Console.WriteLine((Price)a == c);
+
+    interface IPrice
+    {
+        decimal Amount { get; }
+    }
+
+    record Price(decimal Amount, string Currency) : IPrice;
+
+options:
+  - { id: a, text: "True, True, True" }
+  - { id: b, text: "False, True, True" }
+  - { id: c, text: "False, False, True" }
+  - { id: d, text: "False, True, False" }
+answer: b
+
+explanation:
+  takeaway: >-
+    C# picks `==` from the operands' compile-time types. Through an interface it
+    compares references, even when the object is a record with value equality.
+  details: |
+    Operators are static, so the compiler picks `==` from the operands'
+    compile-time types. `a` and `b` are typed `IPrice`, which declares no `==`,
+    so the predefined reference equality applies: two separate objects, `False`.
+
+    `Equals` is virtual, so `a.Equals(b)` runs the record's synthesized override
+    at run time. It compares the run-time type and every field: `True`.
+
+    The cast in `(Price)a == c` makes both operands `Price`, so the record's
+    synthesized `==` is chosen, and it compares values: `True`.
+
+    The tempting `True, True, True` assumes `==` follows the run-time type the
+    way the virtual `Equals` does. Operators are bound at compile time.
+
+sources:
+  - kind: proof
+    title: "C# specification §12.15.7: Reference type equality operators"
+    url: https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/expressions#12157-reference-type-equality-operators
+    look_for: "The string == overload is not applicable when an operand's binding-time type is object, so reference equality is used"
+    checked: 2026-10-29
+  - kind: proof
+    title: "Equality operators: Reference types equality"
+    url: https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/equality-operators#reference-types-equality
+    look_for: "Reference-type operands, excluding records, are equal by default only if they refer to the same object"
+    checked: 2026-10-29
+  - kind: proof
+    title: "Records: Value equality"
+    url: https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/builtin-types/record#value-equality
+    look_for: "The compiler synthesizes an Object.Equals(Object) override and the == and != operators for value equality"
+    checked: 2026-10-29
+
+verification:
+  method: run
+  check: checks/csharp-001/check.cs
+
+status: draft

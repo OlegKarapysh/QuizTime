@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Gate 1: checks every roadmap, concept and question file against the schemas and against each other.
+# Prints file:line:column errors and exits 1 if there are any.
+set -euo pipefail
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+exec dotnet run --project "$root/tools/QuizBank" --verbosity quiet -- validate --root "$root" "$@"

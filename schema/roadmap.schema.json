@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Roadmap mirror",
+  "description": "roadmaps/<roadmap-id>.yaml: the roadmap nodes questions can attach to, in display order.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "title", "nodes"],
+  "properties": {
+    "id": { "$ref": "common.schema.json#/$defs/slug" },
+    "title": { "$ref": "common.schema.json#/$defs/text" },
+    "source": {
+      "description": "Where the mirror comes from and how much of it is mirrored.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "total_nodes"],
+      "properties": {
+        "name": { "$ref": "common.schema.json#/$defs/text" },
+        "total_nodes": {
+          "description": "Node count of the full roadmap; the mirror may hold fewer.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "note": { "$ref": "common.schema.json#/$defs/text" }
+      }
+    },
+    "nodes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title"],
+        "properties": {
+          "id": { "$ref": "common.schema.json#/$defs/slug" },
+          "title": { "$ref": "common.schema.json#/$defs/text" },
+          "parent": {
+            "$ref": "common.schema.json#/$defs/slug",
+            "description": "Id of the parent node; omit for top-level nodes."
+          },
+          "areas": {
+            "description": "Daily-quiz areas this node's questions usually fall under.",
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "$ref": "common.schema.json#/$defs/area" }
+          }
+        }
+      }
+    }
+  }
+}

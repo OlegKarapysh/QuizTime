@@ -1,0 +1,242 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Quiz question",
+  "description": "questions/<roadmap>/<node>/<id>.yaml: one question, its explanation, sources and verification record.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id", "roadmap", "node", "concept", "area", "level", "type", "targets",
+    "stem", "options", "answer", "explanation", "sources", "status"
+  ],
+  "properties": {
+    "id": {
+      "description": "<node-id>-<3-digit seq>. Unique and never reused.",
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*-[0-9]{3}$"
+    },
+    "roadmap": { "$ref": "common.schema.json#/$defs/slug" },
+    "node": {
+      "$ref": "common.schema.json#/$defs/slug",
+      "description": "Must exist in roadmaps/<roadmap>.yaml."
+    },
+    "concept": {
+      "$ref": "common.schema.json#/$defs/slug",
+      "description": "Must exist in the concept registry."
+    },
+    "area": { "$ref": "common.schema.json#/$defs/area" },
+    "level": { "enum": ["beginner", "intermediate", "advanced"] },
+    "type": { "enum": ["single-choice", "multi-choice", "ordering"] },
+    "targets": {
+      "description": "Versions the marked answer holds for.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dotnet"],
+      "properties": {
+        "dotnet": { "$ref": "common.schema.json#/$defs/version" },
+        "efcore": { "$ref": "common.schema.json#/$defs/version" },
+        "npgsql": { "$ref": "common.schema.json#/$defs/version" },
+        "postgres": { "$ref": "common.schema.json#/$defs/version" }
+      }
+    },
+    "stem": { "$ref": "common.schema.json#/$defs/text" },
+    "code": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lang", "text"],
+      "properties": {
+        "lang": { "enum": ["csharp", "sql", "json", "http", "xml", "yaml", "shell", "text"] },
+        "text": { "$ref": "common.schema.json#/$defs/text" }
+      }
+    },
+    "options": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "text"],
+        "properties": {
+          "id": { "$ref": "#/$defs/optionId" },
+          "text": { "$ref": "common.schema.json#/$defs/text" }
+        }
+      }
+    },
+    "answer": {
+      "description": "An option id for single-choice; a list of ids for multi-choice; every id in order for ordering.",
+      "type": ["string", "array"]
+    },
+    "explanation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["takeaway", "details"],
+      "properties": {
+        "takeaway": {
+          "$ref": "common.schema.json#/$defs/text",
+          "description": "30 words max, shown first."
+        },
+        "details": {
+          "$ref": "common.schema.json#/$defs/text",
+          "description": "150 words max, behind \"More\". Says why the most tempting wrong option is wrong."
+        }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/source" },
+      "contains": {
+        "description": "At least one proof source.",
+        "type": "object",
+        "required": ["kind"],
+        "properties": { "kind": { "const": "proof" } }
+      }
+    },
+    "verification": { "$ref": "#/$defs/verification" },
+    "quarantine": {
+      "description": "Why the question left the pool. Required while status is quarantined.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reason", "date"],
+      "properties": {
+        "reason": { "$ref": "common.schema.json#/$defs/text" },
+        "date": { "$ref": "common.schema.json#/$defs/date" }
+      }
+    },
+    "status": { "enum": ["draft", "verified", "reviewed", "quarantined", "retired"] }
+  },
+  "allOf": [
+    {
+      "if": { "required": ["type"], "properties": { "type": { "const": "single-choice" } } },
+      "then": {
+        "properties": {
+          "options": { "minItems": 4, "maxItems": 4 },
+          "answer": { "$ref": "#/$defs/optionId" }
+        }
+      }
+    },
+    {
+      "if": { "required": ["type"], "properties": { "type": { "const": "multi-choice" } } },
+      "then": {
+        "properties": {
+          "options": { "minItems": 4, "maxItems": 5 },
+          "answer": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 3,
+            "uniqueItems": true,
+            "items": { "$ref": "#/$defs/optionId" }
+          }
+        }
+      }
+    },
+    {
+      "if": { "required": ["type"], "properties": { "type": { "const": "ordering" } } },
+      "then": {
+        "properties": {
+          "answer": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": { "$ref": "#/$defs/optionId" }
+          }
+        }
+      }
+    },
+    {
+      "if": { "required": ["status"], "properties": { "status": { "enum": ["verified", "reviewed"] } } },
+      "then": {
+        "required": ["verification"],
+        "properties": {
+          "verification": {
+            "required": ["blind_solve", "audit"],
+            "properties": {
+              "blind_solve": { "properties": { "agreed": { "const": true } } },
+              "audit": { "properties": { "verdict": { "const": "pass" } } }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "required": ["status"], "properties": { "status": { "const": "quarantined" } } },
+      "then": { "required": ["quarantine"] }
+    }
+  ],
+  "$defs": {
+    "optionId": {
+      "type": "string",
+      "pattern": "^[a-f]$"
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "title", "url", "look_for", "checked"],
+      "properties": {
+        "kind": {
+          "description": "proof: directly states what the answer claims. further: reading only (blogs, source code, books).",
+          "enum": ["proof", "further"]
+        },
+        "title": { "$ref": "common.schema.json#/$defs/text" },
+        "url": {
+          "description": "Link to the exact section.",
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://"
+        },
+        "look_for": {
+          "$ref": "common.schema.json#/$defs/text",
+          "description": "One line: what the linked section says."
+        },
+        "checked": {
+          "$ref": "common.schema.json#/$defs/date",
+          "description": "When the page was opened and confirmed to state the claim."
+        }
+      }
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method"],
+      "properties": {
+        "method": { "enum": ["run", "sql", "docs"] },
+        "check": {
+          "description": "checks/<id>/check.cs for run, checks/<id>/check.sql for sql.",
+          "type": "string"
+        },
+        "blind_solve": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["model", "picked", "agreed", "date"],
+          "properties": {
+            "model": { "$ref": "common.schema.json#/$defs/text" },
+            "picked": {
+              "oneOf": [
+                { "$ref": "#/$defs/optionId" },
+                { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/optionId" } }
+              ]
+            },
+            "agreed": { "type": "boolean" },
+            "date": { "$ref": "common.schema.json#/$defs/date" }
+          }
+        },
+        "audit": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["verdict", "date"],
+          "properties": {
+            "verdict": { "enum": ["pass", "fail"] },
+            "date": { "$ref": "common.schema.json#/$defs/date" },
+            "notes": { "$ref": "common.schema.json#/$defs/text" }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "required": ["method"], "properties": { "method": { "enum": ["run", "sql"] } } },
+          "then": { "required": ["check"] },
+          "else": { "properties": { "check": false } }
+        }
+      ]
+    }
+  }
+}

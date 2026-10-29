@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Shared definitions",
+  "description": "Definitions referenced by the question, concept and roadmap schemas.",
+  "$defs": {
+    "slug": {
+      "description": "Lowercase kebab-case identifier.",
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "text": {
+      "description": "Non-blank text.",
+      "type": "string",
+      "pattern": "\\S"
+    },
+    "date": {
+      "description": "Calendar date, YYYY-MM-DD.",
+      "type": "string",
+      "format": "date"
+    },
+    "version": {
+      "description": "Version number such as \"10.0\" or \"16\". Quote it in YAML, or 10.0 is read as a number.",
+      "type": "string",
+      "pattern": "^[0-9]+(\\.[0-9]+){0,2}$"
+    },
+    "area": {
+      "description": "One of the six daily-quiz areas.",
+      "enum": [
+        "C# language features",
+        "ASP.NET Core / APIs",
+        "EF Core & PostgreSQL",
+        "Async, DI & architecture",
+        "Security",
+        "Observability"
+      ]
+    }
+  }
+}

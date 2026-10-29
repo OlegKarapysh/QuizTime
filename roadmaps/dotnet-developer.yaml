@@ -1,0 +1,204 @@
+# Mirror of the .NET Developer roadmap: 41 of its 96 nodes, in display order.
+# Node ids are permanent: question ids and file paths are built from them.
+#
+# Reconstructed from docs/PLAN.md because the Oct 16 draft mirror was not
+# available. Check node ids and titles against the in-house roadmap before
+# questions are written for them.
+
+id: dotnet-developer
+title: .NET Developer
+source:
+  name: In-house .NET Developer roadmap
+  total_nodes: 96
+  note: Mirrors the nodes covered by the six daily-quiz areas.
+
+nodes:
+  - id: language
+    title: C# and .NET
+
+  - id: csharp
+    title: C#
+    parent: language
+    areas: [C# language features]
+
+  - id: linq
+    title: LINQ
+    parent: language
+    areas: [C# language features]
+
+  - id: async-await
+    title: Async/await and tasks
+    parent: language
+    areas: ["Async, DI & architecture"]
+
+  - id: memory-management
+    title: Memory management and GC
+    parent: language
+    areas: [C# language features]
+
+  - id: aspnet-core
+    title: ASP.NET Core
+
+  - id: middlewares
+    title: Middlewares
+    parent: aspnet-core
+    areas: [ASP.NET Core / APIs]
+
+  - id: routing
+    title: Routing
+    parent: aspnet-core
+    areas: [ASP.NET Core / APIs]
+
+  - id: minimal-apis
+    title: Minimal APIs
+    parent: aspnet-core
+    areas: [ASP.NET Core / APIs]
+
+  - id: controllers
+    title: Controllers
+    parent: aspnet-core
+    areas: [ASP.NET Core / APIs]
+
+  - id: filters
+    title: Filters
+    parent: aspnet-core
+    areas: [ASP.NET Core / APIs]
+
+  - id: model-binding-validation
+    title: Model binding and validation
+    parent: aspnet-core
+    areas: [ASP.NET Core / APIs]
+
+  - id: configuration
+    title: Configuration and options
+    parent: aspnet-core
+    areas: [ASP.NET Core / APIs]
+
+  - id: background-services
+    title: Hosted and background services
+    parent: aspnet-core
+    areas: [ASP.NET Core / APIs, "Async, DI & architecture"]
+
+  - id: http-client
+    title: HttpClient and resilience
+    parent: aspnet-core
+    areas: [ASP.NET Core / APIs]
+
+  - id: caching
+    title: Caching
+    parent: aspnet-core
+    areas: [ASP.NET Core / APIs]
+
+  - id: dependency-injection
+    title: Dependency injection
+    areas: ["Async, DI & architecture"]
+
+  - id: service-lifetimes
+    title: Service lifetimes
+    parent: dependency-injection
+    areas: ["Async, DI & architecture"]
+
+  - id: data-access
+    title: Data access
+
+  - id: sql-basics
+    title: SQL
+    parent: data-access
+    areas: [EF Core & PostgreSQL]
+
+  - id: postgresql
+    title: PostgreSQL
+    parent: data-access
+    areas: [EF Core & PostgreSQL]
+
+  - id: transactions
+    title: Transactions and isolation
+    parent: data-access
+    areas: [EF Core & PostgreSQL]
+
+  - id: ef-core
+    title: Entity Framework Core
+    parent: data-access
+    areas: [EF Core & PostgreSQL]
+
+  - id: ef-change-tracking
+    title: Change tracking
+    parent: ef-core
+    areas: [EF Core & PostgreSQL]
+
+  - id: ef-querying
+    title: Querying and SQL translation
+    parent: ef-core
+    areas: [EF Core & PostgreSQL]
+
+  - id: ef-loading
+    title: Loading related data
+    parent: ef-core
+    areas: [EF Core & PostgreSQL]
+
+  - id: security
+    title: Security
+
+  - id: authentication
+    title: Authentication
+    parent: security
+    areas: [Security]
+
+  - id: authorization
+    title: Authorization
+    parent: security
+    areas: [Security]
+
+  - id: web-vulnerabilities
+    title: Web vulnerabilities (OWASP)
+    parent: security
+    areas: [Security]
+
+  - id: observability
+    title: Observability
+
+  - id: logging
+    title: Logging
+    parent: observability
+    areas: [Observability]
+
+  - id: distributed-tracing
+    title: Distributed tracing
+    parent: observability
+    areas: [Observability]
+
+  - id: metrics
+    title: Metrics
+    parent: observability
+    areas: [Observability]
+
+  - id: architecture
+    title: Architecture
+
+  - id: clean-architecture
+    title: Layered and clean architecture
+    parent: architecture
+    areas: ["Async, DI & architecture"]
+
+  - id: cqrs-mediator
+    title: CQRS and mediator
+    parent: architecture
+    areas: ["Async, DI & architecture"]
+
+  - id: messaging
+    title: Messaging and message brokers
+    parent: architecture
+    areas: ["Async, DI & architecture"]
+
+  - id: testing
+    title: Testing
+
+  - id: unit-testing
+    title: Unit testing
+    parent: testing
+    areas: ["Async, DI & architecture"]
+
+  - id: integration-testing
+    title: Integration testing
+    parent: testing
+    areas: [ASP.NET Core / APIs]
