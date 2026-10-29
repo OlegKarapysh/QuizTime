@@ -65,8 +65,7 @@ public sealed class PostgresServer : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         await _admin.DisposeAsync();
-        if (_containerId is not null)
-            await ProcessRunner.RunAsync("docker", ["rm", "--force", _containerId], ".", DockerTimeout, CancellationToken.None);
+        if (_containerId is not null) await RemoveContainerAsync(_containerId);
     }
 
     /// <summary>Runs a server-level command. When the server refuses one, no check can run, so the run stops.</summary>
@@ -82,6 +81,9 @@ public sealed class PostgresServer : IAsyncDisposable
             throw new EnvironmentException($"PostgreSQL could not run '{sql}': {e.Message}");
         }
     }
+
+    private static Task RemoveContainerAsync(string containerId) =>
+        ProcessRunner.RunAsync("docker", ["rm", "--force", containerId], ".", DockerTimeout, CancellationToken.None);
 
     private static async Task<PostgresServer> StartContainerAsync(TextWriter log, CancellationToken cancellationToken)
     {
@@ -101,7 +103,7 @@ public sealed class PostgresServer : IAsyncDisposable
         }
         catch
         {
-            await ProcessRunner.RunAsync("docker", ["rm", "--force", containerId], ".", DockerTimeout, CancellationToken.None);
+            await RemoveContainerAsync(containerId);
             throw;
         }
     }
