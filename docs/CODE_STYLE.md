@@ -25,7 +25,7 @@ The tools are one .NET 10 console app. Each tool is a command (`quizbank validat
 - `Cli.Run(args, stdout, stderr)` parses arguments and returns the exit code. It takes writers instead of using `Console`, so tests call it directly.
 - Exit codes: `0` passed, `1` found errors, `2` bad usage or environment (unknown command, no repo root, Docker not running).
 - Errors go to stdout, one per line, as `file:line:column: message` with the file relative to the repo root and forward slashes (`Diagnostic`). A summary line comes last, like `validate: OK, 1 roadmap (41 nodes), 11 concepts, 1 question`.
-- Messages are full sentences that end with a period and quote values in single quotes, and say how to fix the problem when it isn't obvious: `Concept 'x' does not list node 'linq'; add it to the concept in concepts/sample.yaml.`
+- The tool's own messages are full sentences that end with a period and quote values in single quotes, and say how to fix the problem when it isn't obvious: `Concept 'x' does not list node 'linq'; add it to the concept in concepts/sample.yaml.` Schema errors pass through from JsonSchema.Net as they are, prefixed with the JSON pointer: `/targets/dotnet: Value is "integer" but should be "string"`.
 - Output is deterministic: same input, same lines in the same order.
 
 **Code**
@@ -34,7 +34,7 @@ The tools are one .NET 10 console app. Each tool is a command (`quizbank validat
 - Keep logic apart from I/O. A validator collects `Diagnostic`s and returns a report; only `Cli` writes output.
 - `sealed` records for data, `sealed` or `static` classes otherwise. Private fields are `_camelCase`.
 - `var` everywhere. Pattern matching (`args is ["validate", .. var options]`) and switch expressions where they read better than `if` chains.
-- A single-line `if` may skip braces; anything longer gets them.
+- An `if`, `else` or loop whose body is a single statement may skip braces, on the same line or the next. A body of two or more statements gets them.
 - `/// <summary>` on public types and members whose purpose isn't obvious from the name.
 - `[GeneratedRegex]` for regular expressions.
 - No network in validate or lint. A tool that needs the network (the link checker) takes an `HttpMessageHandler` or similar seam, so tests can fake it.
@@ -86,7 +86,7 @@ What makes a good question (no trivia, option lengths, explanations, sources) is
 
 ## GitHub Actions
 
-- Pin actions to a major version (`actions/checkout@v7`) and Docker actions to an exact version. Dependabot proposes bumps.
+- Pin actions to a major version (`actions/checkout@v7`); Dependabot proposes bumps. Pin `docker://` steps to an exact image version and bump them by hand; don't count on Dependabot for those.
 - Least-privilege `permissions:`, `contents: read` unless a job writes.
 - Every job has `timeout-minutes`.
 - actionlint runs in CI, and in `tools/verify` when it's installed.
