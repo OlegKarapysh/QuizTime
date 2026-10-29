@@ -62,7 +62,7 @@ public sealed partial class BankValidator
         // The schema already reports URLs that don't parse.
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)) return null;
 
-        var view = ViewParameter().Match(uri.Query) is { Success: true } m ? Uri.UnescapeDataString(m.Groups[1].Value) : null;
+        var view = ViewOf(uri);
         return uri.Host.ToLowerInvariant() switch
         {
             "learn.microsoft.com" when LearnAspNetCore().IsMatch(uri.AbsolutePath) && view != "aspnetcore-10.0" =>
@@ -75,6 +75,10 @@ public sealed partial class BankValidator
             _ => null,
         };
     }
+
+    /// <summary>The ?view= of a Microsoft Learn URL, such as net-10.0, or null.</summary>
+    internal static string? ViewOf(Uri uri) =>
+        ViewParameter().Match(uri.Query) is { Success: true } m ? Uri.UnescapeDataString(m.Groups[1].Value) : null;
 
     /// <summary>
     /// A check copies its question's code unchanged between snippet markers (docs/CODE_STYLE.md), so it runs what the

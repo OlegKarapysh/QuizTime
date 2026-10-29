@@ -89,7 +89,12 @@ public sealed partial class LinkChecker
                 request.Headers.Accept.ParseAdd("text/html");
                 using var response = await _http.SendAsync(request, timeout.Token);
 
-                if (response.IsSuccessStatusCode) return new PageResult(await response.Content.ReadAsStringAsync(timeout.Token), null);
+                if (response.IsSuccessStatusCode)
+                {
+                    return ChangedView(url, response.RequestMessage?.RequestUri) is { } problem
+                        ? new PageResult(null, problem)
+                        : new PageResult(await response.Content.ReadAsStringAsync(timeout.Token), null);
+                }
 
                 var status = $"HTTP {(int)response.StatusCode} {response.ReasonPhrase}".TrimEnd();
                 if (!IsTransient(response.StatusCode)) return new PageResult(null, $"'{url}' returned {status}.");
@@ -121,6 +126,19 @@ public sealed partial class LinkChecker
         var header = response.Headers.RetryAfter;
         var wait = header?.Delta ?? (header?.Date is { } date ? date - DateTimeOffset.UtcNow : null);
         return wait is { } w ? TimeSpan.FromTicks(Math.Clamp(w.Ticks, 0, MaxRetryAfter.Ticks)) : null;
+    }
+
+    /// <summary>
+    /// Learn redirects a page that doesn't exist in the pinned version (?view=net-10.0) to one that does, such as
+    /// ?view=netframework-4.8.1. The page loads, but it documents another version.
+    /// </summary>
+    private static string? ChangedView(string url, Uri? finalUri)
+    {
+        if (finalUri is null || BankValidator.ViewOf(new Uri(url)) is not { } view) return null;
+
+        return BankValidator.ViewOf(finalUri) == view
+            ? null
+            : $"'{url}' redirects to '{finalUri}', so the page doesn't exist in view '{view}'; cite a page that does.";
     }
 
     private static string PageUrl(string url) => url.Split('#', 2)[0];

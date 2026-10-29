@@ -72,6 +72,38 @@ public sealed class LinkCheckerTests : IDisposable
     public Task Other_names_and_data_ids_are_not_anchors(string anchor) => AssertAnchorAsync(anchor, found: false);
 
     [Fact]
+    public async Task Redirect_to_another_view_fails()
+    {
+        // Learn sends a page that doesn't exist in the pinned version to one that does.
+        const string fallback = "https://learn.microsoft.com/dotnet/api/system.string.intern?view=netframework-4.8.1&viewFallbackFrom=net-10.0";
+        var handler = new FakeHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(Page),
+            RequestMessage = new HttpRequestMessage(HttpMethod.Get, fallback),
+        });
+
+        var report = await CheckAsync(handler);
+
+        Assert.Equal(
+            $"'{SampleUrl}' redirects to '{fallback}', so the page doesn't exist in view 'net-10.0'; cite a page that does.",
+            Assert.Single(report.Errors).Message);
+    }
+
+    [Fact]
+    public async Task Redirect_within_the_view_passes()
+    {
+        var handler = new FakeHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(Page),
+            RequestMessage = new HttpRequestMessage(HttpMethod.Get, SampleUrl.Replace("/dotnet/", "/en-us/dotnet/")),
+        });
+
+        var report = await CheckAsync(handler);
+
+        Assert.Empty(report.Errors);
+    }
+
+    [Fact]
     public async Task Transient_errors_are_retried_with_backoff()
     {
         var responses = new Queue<HttpResponseMessage>(
