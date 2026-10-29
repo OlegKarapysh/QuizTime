@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Gate 2: runs each question's check (checks/<id>/check.cs or check.sql) and asserts its marked answer.
+# Database checks use PostgreSQL 16 from QUIZTIME_PG, or a Docker container started for the run.
+# Pass question ids, or --changed-since <git-ref>, to run only some. Exits 1 if a check fails.
+set -euo pipefail
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+exec dotnet run --project "$root/tools/QuizBank" --verbosity quiet -- run-checks --root "$root" "$@"

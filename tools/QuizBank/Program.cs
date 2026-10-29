@@ -1,1 +1,1 @@
-return QuizBank.Cli.Run(args, Console.Out, Console.Error);
+return await QuizBank.Cli.RunAsync(args, Console.Out, Console.Error);

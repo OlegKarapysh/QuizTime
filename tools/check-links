@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Opens every question source link and checks that the page and its anchor exist. Needs the network.
+# Pass question ids, or --changed-since <git-ref>, to check only some. Exits 1 if a link is broken.
+set -euo pipefail
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+exec dotnet run --project "$root/tools/QuizBank" --verbosity quiet -- check-links --root "$root" "$@"
