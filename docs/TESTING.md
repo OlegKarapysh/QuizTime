@@ -23,7 +23,7 @@ A bug in the code weakens the content without anyone noticing: a validator that 
 
 CI's verify job runs `tools/verify`; its checks job runs `tools/run-checks` and `tools/check-links`. Those two stay out of `tools/verify` because they need Docker and the network. PLAN.md puts the lint rules in gate 1, so they belong in `tools/validate` and run wherever it runs. The denylist needs `private/`, which CI can't see, so it only runs locally: in the pre-commit hook and in the batch skill. The hook validates a copy of the staged files, so the `tools/validate` wrapper passes `--denylist` with the real repo root's `private/denylist.txt`. Without that file, validate says so in its summary line. When a tool lands, wire it into `tools/verify` (if it's offline and fast) or the checks job, the hook if it's fast, and CI in the same PR, and update this table.
 
-"Changed questions" means `--changed-since <PR base>`: questions whose YAML file or `checks/<id>/` folder differs from the merge base. A change under `tools/` (except `tools/QuizBank.Tests/`) or to `global.json` can change any result, so it selects every question.
+"Changed questions" means `--changed-since <PR base>`: questions whose YAML file or `checks/<id>/` folder differs from the merge base. Any other change can change every result (the tools, `global.json`, build files the checks inherit such as `checks/Directory.Build.props`, CI), so it selects every question. The exceptions are the rest of the bank (`concepts/`, `roadmaps/`, `schema/`), `docs/`, Markdown files, `tools/QuizBank.Tests/`, `.claude/` and `.githooks/`.
 
 ## Testing the tools
 

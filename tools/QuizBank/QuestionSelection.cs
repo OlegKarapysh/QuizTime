@@ -8,6 +8,9 @@ public static class QuestionSelection
 {
     private static readonly TimeSpan GitTimeout = TimeSpan.FromMinutes(1);
 
+    // The rest of the bank, docs and the tool tests can't change what a check prints.
+    private static readonly string[] NoEffectOnChecks = ["questions/", "concepts/", "roadmaps/", "schema/", "docs/", "tools/QuizBank.Tests/", ".claude/", ".githooks/"];
+
     /// <summary>The questions with these ids. Throws <see cref="ArgumentException"/> naming the first unknown id.</summary>
     public static IReadOnlyList<BankFile<Question>> ByIds(IReadOnlyList<BankFile<Question>> questions, IReadOnlyList<string> ids)
     {
@@ -18,8 +21,9 @@ public static class QuestionSelection
     }
 
     /// <summary>
-    /// The questions whose question file or checks/&lt;id&gt;/ folder changed. A change to the tools (except their
-    /// tests) or to global.json can change any result, so it selects every question.
+    /// The questions whose question file or checks/&lt;id&gt;/ folder changed. Any other change can change every result
+    /// (the tools, global.json, build files the checks inherit, CI), so it selects every question, unless it is to the
+    /// rest of the bank, the docs or the tool tests.
     /// </summary>
     public static IReadOnlyList<BankFile<Question>> ByChangedFiles(IReadOnlyList<BankFile<Question>> questions, IEnumerable<string> changedFiles)
     {
@@ -42,7 +46,9 @@ public static class QuestionSelection
     }
 
     private static bool AffectsEveryQuestion(string file) =>
-        file == "global.json" || (file.StartsWith("tools/", StringComparison.Ordinal) && !file.StartsWith("tools/QuizBank.Tests/", StringComparison.Ordinal));
+        IdOf(file) is null
+        && !file.EndsWith(".md", StringComparison.Ordinal)
+        && !NoEffectOnChecks.Any(folder => file.StartsWith(folder, StringComparison.Ordinal));
 
     private static string? IdOf(string file) => file.Split('/') switch
     {

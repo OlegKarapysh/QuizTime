@@ -19,9 +19,12 @@ public sealed class QuestionSelectionTests : IDisposable
 
     [Theory]
     [InlineData("docs/PLAN.md")]
+    [InlineData("README.md")]
     [InlineData("concepts/sample.yaml")]
+    [InlineData("schema/question.schema.json")]
     [InlineData("tools/QuizBank.Tests/CliTests.cs")]
     [InlineData("checks/csharp-002/check.cs")]
+    [InlineData("questions/sample/notes.txt")]
     public void Unrelated_changes_select_nothing(string file)
     {
         Assert.Empty(QuestionSelection.ByChangedFiles(_repo.Questions(), [file]));
@@ -32,7 +35,11 @@ public sealed class QuestionSelectionTests : IDisposable
     [InlineData("tools/Directory.Packages.props")]
     [InlineData("tools/run-checks")]
     [InlineData("global.json")]
-    public void Tool_and_sdk_changes_select_every_question(string file)
+    [InlineData("checks/Directory.Build.props")]
+    [InlineData("nuget.config")]
+    [InlineData(".editorconfig")]
+    [InlineData(".github/workflows/ci.yml")]
+    public void Tool_build_and_ci_changes_select_every_question(string file)
     {
         Assert.Single(QuestionSelection.ByChangedFiles(_repo.Questions(), ["docs/PLAN.md", file]));
     }

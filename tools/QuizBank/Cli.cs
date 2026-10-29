@@ -21,7 +21,7 @@ public static class Cli
           run-checks and check-links cover every question, or only:
                           <id>...                   these questions
                           --changed-since <git-ref> questions changed since the merge base with the ref
-                                                    (all of them when the tools or global.json changed)
+                                                    (all of them when the tools, build files or CI changed)
 
         Without --root, the repo root is the nearest directory at or above the current one
         that holds schema/question.schema.json.

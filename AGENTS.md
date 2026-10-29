@@ -42,7 +42,7 @@ This table is the canonical command list. Other docs show a subset and link here
 | `tools/format` | Apply the formatting `tools/verify` checks |
 | `tools/validate` | Gate 1 on the real bank: schemas, cross-references, then the lint rules and the denylist |
 | `tools/run-checks` | Gate 2: every question's check. Starts PostgreSQL 16 in Docker for database checks. |
-| `tools/run-checks --changed-since main` | Only the questions changed on your branch (all of them if the tools changed). Run before committing questions or checks. |
+| `tools/run-checks --changed-since main` | Only the questions changed on your branch (all of them if the tools, build files or CI changed). Run before committing questions or checks. |
 | `tools/run-checks <id>...` | Only these questions |
 | `tools/check-links` | Open every source link and check its page and anchor (network). Takes ids or `--changed-since` too. |
 | `dotnet test --solution QuizTime.slnx` | All tool tests. Database tests skip without Docker. |
