@@ -32,8 +32,9 @@ public static class SqlCheck
 
     /// <summary>
     /// Each result set prints a header line of column names and one line per row, values separated by |, NULL as NULL.
-    /// A failing statement prints "ERROR &lt;SQLSTATE&gt;: &lt;message&gt;" and stops the script. Blank lines separate the blocks.
-    /// Statements without a result set (DDL, plain INSERT) print nothing.
+    /// A failing statement prints only "ERROR &lt;SQLSTATE&gt;: &lt;message&gt;", not the rows it returned first, and stops
+    /// the script, as psql does. Blank lines separate the blocks. Statements without a result set (DDL, plain INSERT)
+    /// print nothing.
     /// </summary>
     public static async Task<SqlOutput> ExecuteAsync(IReadOnlyList<SqlStatement> statements, string connectionString, CancellationToken cancellationToken)
     {
@@ -43,6 +44,7 @@ public static class SqlCheck
 
         foreach (var statement in statements)
         {
+            var printed = new List<string>();
             try
             {
                 await using var command = new NpgsqlCommand(statement.Text, connection)
@@ -54,10 +56,10 @@ public static class SqlCheck
                 do
                 {
                     if (reader.FieldCount == 0) continue;
-                    if (lines.Count > 0) lines.Add("");
-                    lines.Add(string.Join("|", Enumerable.Range(0, reader.FieldCount).Select(reader.GetName)));
+                    if (lines.Count + printed.Count > 0) printed.Add("");
+                    printed.Add(string.Join("|", Enumerable.Range(0, reader.FieldCount).Select(reader.GetName)));
                     while (await reader.ReadAsync(cancellationToken))
-                        lines.Add(string.Join("|", Enumerable.Range(0, reader.FieldCount).Select(i => Value(reader, i))));
+                        printed.Add(string.Join("|", Enumerable.Range(0, reader.FieldCount).Select(i => Value(reader, i))));
                 }
                 while (await reader.NextResultAsync(cancellationToken));
             }
@@ -67,6 +69,8 @@ public static class SqlCheck
                 lines.Add($"ERROR {e.SqlState}: {e.MessageText}");
                 return new SqlOutput(lines, statement.Line);
             }
+
+            lines.AddRange(printed);
         }
 
         return new SqlOutput(lines, null);

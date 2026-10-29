@@ -107,6 +107,27 @@ public sealed class DatabaseCheckTests(PostgresFixture postgres) : IClassFixture
     }
 
     [Fact]
+    public async Task Rows_read_before_an_error_are_not_printed()
+    {
+        // The server sends the row for x = 1 before x = 2 divides by zero; psql shows only the error.
+        _repo.UseSqlCheck(Orders + """
+            SELECT count(*) AS n FROM orders;
+            SELECT 1 / (x - 2) AS r FROM generate_series(1, 3) x;
+
+            -- --- expected ---
+            -- n
+            -- 2
+            --
+            -- ERROR 22012: division by zero
+            -- --- end expected ---
+            """);
+
+        var result = await RunAsync();
+
+        Assert.True(result.Passed, string.Join("\n", result.Errors.Concat<object>(result.Output)));
+    }
+
+    [Fact]
     public async Task Unexpected_error_names_the_failing_statement()
     {
         _repo.UseSqlCheck(Orders + """
