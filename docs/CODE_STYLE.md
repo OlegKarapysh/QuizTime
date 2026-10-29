@@ -79,6 +79,7 @@ SELECT count(total) AS priced, count(*) AS all_orders FROM orders;
 - run-checks runs the script in a fresh database it creates and drops, so the script needs no cleanup. Statements run one at a time with autocommit, as in psql. `BEGIN`/`COMMIT` work; psql meta-commands (`\set`) and `BEGIN ATOMIC` function bodies don't.
 - The expected block comes last. Each line starts with `--`. It holds the output of every statement that returns rows: a header of column names, then one line per row, values separated by `|`, in PostgreSQL's text format (`t`, `10.00`, `2026-11-02 08:00:00+00`) and `NULL` for null. Statements without rows (DDL, plain `INSERT`) print nothing. A blank `--` line separates consecutive results.
 - A failing statement prints `ERROR <SQLSTATE>: <message>` and stops the script, so an answer that is an error is asserted the same way. As in psql, rows it returned before failing aren't printed.
+- Values aren't escaped, as in psql: null and the text `NULL` print the same, and so does a `|` inside a value. When the difference matters to the answer, select `quote_nullable(x)` or `x IS NULL` instead of `x`.
 - Trailing spaces don't count, because `.editorconfig` trims them.
 - To write the block, leave it empty, run `tools/run-checks <id>`, and copy the output it prints after the failure, once you've confirmed it is the marked answer.
 
